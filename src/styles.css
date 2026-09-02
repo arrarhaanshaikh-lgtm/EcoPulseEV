@@ -59,6 +59,17 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-volt: var(--volt);
+  --color-volt-foreground: var(--volt-foreground);
+  --color-cyber: var(--cyber);
+  --color-cyber-foreground: var(--cyber-foreground);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+}
+
+@theme {
+  --shadow-glow: 0 0 24px -4px color-mix(in oklab, var(--primary) 45%, transparent);
+  --shadow-glow-volt: 0 0 24px -6px color-mix(in oklab, var(--volt) 50%, transparent);
 }
 
 :root {
