@@ -161,5 +161,46 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-body);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+  }
+
+  .leaflet-container {
+    background: oklch(0.17 0.025 250);
+    font-family: var(--font-body);
+  }
+
+  .leaflet-popup-content-wrapper {
+    background: var(--color-card);
+    color: var(--color-card-foreground);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+  }
+
+  .leaflet-popup-tip {
+    background: var(--color-card);
+  }
+
+  .station-pin {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9999px 9999px 9999px 0;
+    transform: rotate(-45deg);
+    border: 2px solid oklch(0.95 0.01 180 / 70%);
+    box-shadow: 0 2px 10px rgb(0 0 0 / 45%);
+  }
+
+  .station-pin > span {
+    transform: rotate(45deg);
+    font-size: 13px;
   }
 }
