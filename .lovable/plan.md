@@ -42,7 +42,7 @@ Step-by-step modal:
 
 ## Mock data
 
-Six Pune stations (Pune Junction EV Hub, MG Road Fast Charge, Baner Green Grid, Kothrud Power Dock, Hinjewadi Volt Park, Viman Nagar Charge Point) with real lat/lng, charger types and counts, price per kWh, queue length, wait time, and reserved slots.
+Ten stations spread across major Indian cities — Mumbai (Bandra Volt Hub, Andheri Charge Point), Delhi (Connaught Place Fast Charge, Saket Green Grid), Bengaluru (MG Road EV Hub, Electronic City Power Dock), Pune (Pune Junction EV Hub, Baner Green Grid), Hyderabad (HITEC City Volt Park), and Chennai (Marina Charge Bay) — with real lat/lng, charger types and counts, price per kWh, queue length, wait time, and reserved slots. The map opens zoomed to fit all of India and drops pins nationwide; the nearby list sorts by distance from the user's chosen city/location.
 
 ## Technical notes
 
