@@ -87,14 +87,14 @@ function OperatorPage() {
 
       <section className="mt-6 rounded-xl border border-border bg-card p-4">
         <h2 className="text-sm font-semibold">Hourly demand (sessions)</h2>
-        <div className="mt-4 flex h-32 items-end gap-1">
+        <div className="mt-4 flex h-32 gap-1">
           {DEMAND.map((v, h) => (
-            <div key={h} className="group relative flex-1">
+            <div key={h} className="group relative flex flex-1 items-end">
               <div
                 className={`w-full rounded-t ${h === peakHour ? "bg-volt" : "bg-primary/70"}`}
                 style={{ height: `${(v / 16) * 100}%`, minHeight: 4 }}
               />
-              <span className="pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 rounded bg-popover px-1.5 py-0.5 text-[10px] opacity-0 shadow group-hover:opacity-100">
+              <span className="pointer-events-none absolute -top-1 left-1/2 -translate-x-1/2 rounded bg-popover px-1.5 py-0.5 text-[10px] opacity-0 shadow group-hover:opacity-100">
                 {h}:00 · {v}
               </span>
             </div>
