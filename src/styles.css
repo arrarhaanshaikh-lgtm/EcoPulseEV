@@ -176,6 +176,11 @@
     font-family: var(--font-body);
   }
 
+  .map-tiles-dark {
+    filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9)
+      saturate(0.4);
+  }
+
   .leaflet-popup-content-wrapper {
     background: var(--color-card);
     color: var(--color-card-foreground);
