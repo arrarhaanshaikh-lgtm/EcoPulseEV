@@ -14,7 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bookings: {
+        Row: {
+          amount_inr: number
+          charger_type: string
+          city: string
+          code: string
+          created_at: string
+          day: string
+          discount_applied: boolean
+          est_kwh: number
+          hour: number
+          id: string
+          paid_at: string | null
+          power_kw: number
+          station_id: string
+          station_name: string
+          status: string
+          stripe_session_id: string | null
+        }
+        Insert: {
+          amount_inr: number
+          charger_type: string
+          city: string
+          code: string
+          created_at?: string
+          day: string
+          discount_applied?: boolean
+          est_kwh: number
+          hour: number
+          id?: string
+          paid_at?: string | null
+          power_kw: number
+          station_id: string
+          station_name: string
+          status?: string
+          stripe_session_id?: string | null
+        }
+        Update: {
+          amount_inr?: number
+          charger_type?: string
+          city?: string
+          code?: string
+          created_at?: string
+          day?: string
+          discount_applied?: boolean
+          est_kwh?: number
+          hour?: number
+          id?: string
+          paid_at?: string | null
+          power_kw?: number
+          station_id?: string
+          station_name?: string
+          status?: string
+          stripe_session_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
