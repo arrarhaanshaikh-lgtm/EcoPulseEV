@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as BookingRouteImport } from './routes/booking'
 import { Route as OperatorRouteImport } from './routes/operator'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as BookingSuccessRouteImport } from './routes/booking.success'
 import { Route as ApiPublicWebhooksStripeRouteImport } from './routes/api/public/webhooks/stripe'
 
 const IndexRoute = IndexRouteImport.update({
@@ -35,6 +36,11 @@ const ProfileRoute = ProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BookingSuccessRoute = BookingSuccessRouteImport.update({
+  id: '/success',
+  path: '/success',
+  getParentRoute: () => BookingRoute,
+} as any)
 const ApiPublicWebhooksStripeRoute = ApiPublicWebhooksStripeRouteImport.update({
   id: '/api/public/webhooks/stripe',
   path: '/api/public/webhooks/stripe',
@@ -43,45 +49,59 @@ const ApiPublicWebhooksStripeRoute = ApiPublicWebhooksStripeRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/booking': typeof BookingRoute
+  '/booking': typeof BookingRouteWithChildren
   '/operator': typeof OperatorRoute
   '/profile': typeof ProfileRoute
+  '/booking/success': typeof BookingSuccessRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/booking': typeof BookingRoute
+  '/booking': typeof BookingRouteWithChildren
   '/operator': typeof OperatorRoute
   '/profile': typeof ProfileRoute
+  '/booking/success': typeof BookingSuccessRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/booking': typeof BookingRoute
+  '/booking': typeof BookingRouteWithChildren
   '/operator': typeof OperatorRoute
   '/profile': typeof ProfileRoute
+  '/booking/success': typeof BookingSuccessRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/booking' | '/operator' | '/profile' | '/api/public/webhooks/stripe'
+    | '/'
+    | '/booking'
+    | '/operator'
+    | '/profile'
+    | '/booking/success'
+    | '/api/public/webhooks/stripe'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/booking' | '/operator' | '/profile' | '/api/public/webhooks/stripe'
+    | '/'
+    | '/booking'
+    | '/operator'
+    | '/profile'
+    | '/booking/success'
+    | '/api/public/webhooks/stripe'
   id:
     | '__root__'
     | '/'
     | '/booking'
     | '/operator'
     | '/profile'
+    | '/booking/success'
     | '/api/public/webhooks/stripe'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  BookingRoute: typeof BookingRoute
+  BookingRoute: typeof BookingRouteWithChildren
   OperatorRoute: typeof OperatorRoute
   ProfileRoute: typeof ProfileRoute
   ApiPublicWebhooksStripeRoute: typeof ApiPublicWebhooksStripeRoute
@@ -117,6 +137,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/booking/success': {
+      id: '/booking/success'
+      path: '/success'
+      fullPath: '/booking/success'
+      preLoaderRoute: typeof BookingSuccessRouteImport
+      parentRoute: typeof BookingRoute
+    }
     '/api/public/webhooks/stripe': {
       id: '/api/public/webhooks/stripe'
       path: '/api/public/webhooks/stripe'
@@ -127,9 +154,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface BookingRouteChildren {
+  BookingSuccessRoute: typeof BookingSuccessRoute
+}
+
+const BookingRouteChildren: BookingRouteChildren = {
+  BookingSuccessRoute: BookingSuccessRoute,
+}
+
+const BookingRouteWithChildren =
+  BookingRoute._addFileChildren(BookingRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  BookingRoute: BookingRoute,
+  BookingRoute: BookingRouteWithChildren,
   OperatorRoute: OperatorRoute,
   ProfileRoute: ProfileRoute,
   ApiPublicWebhooksStripeRoute: ApiPublicWebhooksStripeRoute,

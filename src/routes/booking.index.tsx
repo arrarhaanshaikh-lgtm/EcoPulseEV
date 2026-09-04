@@ -6,7 +6,7 @@ import { useApp } from "../lib/store";
 import { CHARGER_LABELS, availablePorts, queueLevel } from "../lib/stations";
 import BookingFlow from "../components/BookingFlow";
 
-export const Route = createFileRoute("/booking")({
+export const Route = createFileRoute("/booking/")({
   head: () => ({
     meta: [
       { title: "Book a Slot — EcoPulse EV" },
