@@ -276,62 +276,12 @@ export default function BookingFlow({ station: initial, onClose }: Props) {
           </div>
         )}
 
-        {step === "confirm" && booking && (
-          <div className="mt-5 text-center">
-            <CheckCircle2 className="mx-auto h-10 w-10 text-primary" />
-            <h3 className="mt-2 font-display text-lg font-bold">
-              Booking Confirmed
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              Show this QR at the station to start charging
-            </p>
-            <div className="mx-auto mt-4 w-fit rounded-xl bg-foreground p-3">
-              <QRCodeSVG
-                value={`ECOPULSE:${booking.id}:${booking.stationId}:${booking.day}@${booking.hour}`}
-                size={140}
-              />
-            </div>
-            <p className="mt-3 font-mono text-sm font-bold tracking-widest text-primary">
-              {booking.id}
-            </p>
-            <div className="mt-3 space-y-1 rounded-xl border border-border bg-secondary/50 p-3 text-left text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Station</span>
-                <span className="font-medium">{booking.stationName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Slot</span>
-                <span className="font-medium capitalize">
-                  {booking.day} · {fmtHour(booking.hour)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Charger</span>
-                <span className="font-medium">
-                  {CHARGER_LABELS[booking.chargerType]} {booking.powerKw} kW
-                </span>
-              </div>
-              {booking.discountApplied && (
-                <div className="flex justify-between text-primary">
-                  <span className="flex items-center gap-1">
-                    <BadgePercent className="h-3.5 w-3.5" /> Reroute discount
-                  </span>
-                  <span>15% off</span>
-                </div>
-              )}
-              <div className="flex justify-between border-t border-border pt-1 font-bold">
-                <span>Total (est.)</span>
-                <span>₹{booking.total}</span>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="mt-4 w-full rounded-md bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground"
-            >
-              Done
-            </button>
-          </div>
+        {payError && (
+          <p className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+            {payError}
+          </p>
         )}
+
 
         <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
           <Clock className="h-3 w-3" /> Live station data from OpenChargeMap ·
