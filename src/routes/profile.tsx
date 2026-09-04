@@ -105,7 +105,7 @@ function ProfilePage() {
           <div className="mt-3 space-y-2">
             {bookings.map((b) => (
               <div
-                key={b.id}
+                key={b.code}
                 className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3"
               >
                 <div>
@@ -116,7 +116,7 @@ function ProfilePage() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-bold">₹{b.total}</p>
-                  <p className="font-mono text-[10px] text-primary">{b.id}</p>
+                  <p className="font-mono text-[10px] text-primary">{b.code}</p>
                 </div>
               </div>
             ))}
