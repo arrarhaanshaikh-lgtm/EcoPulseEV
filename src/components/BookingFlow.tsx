@@ -333,12 +333,11 @@ export default function BookingFlow({ station: initial, onClose }: Props) {
           </div>
         )}
 
-        {!booking && (
-          <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-            <Clock className="h-3 w-3" /> Availability updates in real time as
-            slots are reserved
-          </p>
-        )}
+        <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+          <Clock className="h-3 w-3" /> Live station data from OpenChargeMap ·
+          payment secured by Stripe
+        </p>
+
       </div>
     </div>
   );
