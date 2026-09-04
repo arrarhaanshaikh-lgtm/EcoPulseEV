@@ -160,7 +160,7 @@ export default function BookingFlow({ station: initial, onClose }: Props) {
           </div>
         )}
 
-        {discount && !booking && (
+        {discount && (
           <p className="mt-3 flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">
             <BadgePercent className="h-3.5 w-3.5" /> 15% reroute discount will be applied
           </p>
