@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
-import { QRCodeSVG } from "qrcode.react";
+import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowRight,
   BadgePercent,
   BatteryCharging,
-  CheckCircle2,
   Clock,
   X,
   Zap,
@@ -14,11 +13,11 @@ import {
   availablePorts,
   bestAlternative,
   isCongested,
-  type Booking,
   type ChargerType,
   type Station,
 } from "../lib/stations";
 import { useApp } from "../lib/store";
+import { createBookingCheckout } from "../lib/payments.functions";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -33,17 +32,19 @@ interface Props {
   onClose: () => void;
 }
 
-type Step = "charger" | "slot" | "confirm";
+type Step = "charger" | "slot";
 
 export default function BookingFlow({ station: initial, onClose }: Props) {
-  const { stations, addBooking, getStation } = useApp();
+  const { stations, registerBooking, getStation } = useApp();
+  const startCheckout = useServerFn(createBookingCheckout);
   const [stationId, setStationId] = useState(initial.id);
   const [step, setStep] = useState<Step>("charger");
   const [chargerType, setChargerType] = useState<ChargerType | null>(null);
   const [day, setDay] = useState<"today" | "tomorrow">("today");
   const [hour, setHour] = useState<number | null>(null);
   const [discount, setDiscount] = useState(false);
-  const [booking, setBooking] = useState<Booking | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   const [rerouteDeclined, setRerouteDeclined] = useState(false);
 
   const station = getStation(stationId) ?? initial;
@@ -52,8 +53,7 @@ export default function BookingFlow({ station: initial, onClose }: Props) {
     () => (congested ? bestAlternative(stations, station) : null),
     [congested, stations, station],
   );
-  const showReroute =
-    congested && alt !== null && !rerouteDeclined && booking === null;
+  const showReroute = congested && alt !== null && !rerouteDeclined;
 
   const chargerOptions = useMemo(() => {
     const map = new Map<ChargerType, { powerKw: number; free: number; total: number }>();
@@ -78,23 +78,33 @@ export default function BookingFlow({ station: initial, onClose }: Props) {
   const subtotal = Math.round(estKwh * station.pricePerKwh);
   const total = discount ? Math.round(subtotal * 0.85) : subtotal;
 
-  const confirm = () => {
-    if (!chargerType || hour === null) return;
-    const b = addBooking({
-      stationId: station.id,
-      stationName: station.name,
-      city: station.city,
-      chargerType,
-      powerKw,
-      day,
-      hour,
-      estKwh,
-      total,
-      discountApplied: discount,
-    });
-    setBooking(b);
-    setStep("confirm");
+  const confirm = async () => {
+    if (!chargerType || hour === null || paying) return;
+    setPaying(true);
+    setPayError(null);
+    try {
+      const res = await startCheckout({
+        data: {
+          stationId: station.id,
+          stationName: station.name,
+          city: station.city,
+          chargerType,
+          powerKw,
+          day,
+          hour,
+          estKwh,
+          total,
+          discountApplied: discount,
+        },
+      });
+      registerBooking(res.code);
+      window.location.href = res.url;
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : "Could not start the payment.");
+      setPaying(false);
+    }
   };
+
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-background/70 backdrop-blur-sm sm:items-center">
