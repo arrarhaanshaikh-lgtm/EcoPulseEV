@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as BookingRouteImport } from './routes/booking'
 import { Route as OperatorRouteImport } from './routes/operator'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as ApiPublicWebhooksStripeRouteImport } from './routes/api/public/webhooks/stripe'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +35,25 @@ const ProfileRoute = ProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicWebhooksStripeRoute = ApiPublicWebhooksStripeRouteImport.update({
+  id: '/api/public/webhooks/stripe',
+  path: '/api/public/webhooks/stripe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/booking': typeof BookingRoute
   '/operator': typeof OperatorRoute
   '/profile': typeof ProfileRoute
+  '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/booking': typeof BookingRoute
   '/operator': typeof OperatorRoute
   '/profile': typeof ProfileRoute
+  '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,22 @@ export interface FileRoutesById {
   '/booking': typeof BookingRoute
   '/operator': typeof OperatorRoute
   '/profile': typeof ProfileRoute
+  '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/booking' | '/operator' | '/profile'
+  fullPaths:
+    '/' | '/booking' | '/operator' | '/profile' | '/api/public/webhooks/stripe'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/booking' | '/operator' | '/profile'
-  id: '__root__' | '/' | '/booking' | '/operator' | '/profile'
+  to:
+    '/' | '/booking' | '/operator' | '/profile' | '/api/public/webhooks/stripe'
+  id:
+    | '__root__'
+    | '/'
+    | '/booking'
+    | '/operator'
+    | '/profile'
+    | '/api/public/webhooks/stripe'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +84,7 @@ export interface RootRouteChildren {
   BookingRoute: typeof BookingRoute
   OperatorRoute: typeof OperatorRoute
   ProfileRoute: typeof ProfileRoute
+  ApiPublicWebhooksStripeRoute: typeof ApiPublicWebhooksStripeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +117,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/webhooks/stripe': {
+      id: '/api/public/webhooks/stripe'
+      path: '/api/public/webhooks/stripe'
+      fullPath: '/api/public/webhooks/stripe'
+      preLoaderRoute: typeof ApiPublicWebhooksStripeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +132,7 @@ const rootRouteChildren: RootRouteChildren = {
   BookingRoute: BookingRoute,
   OperatorRoute: OperatorRoute,
   ProfileRoute: ProfileRoute,
+  ApiPublicWebhooksStripeRoute: ApiPublicWebhooksStripeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
