@@ -6,7 +6,7 @@ import { useApp } from "../lib/store";
 import { CHARGER_LABELS, availablePorts, queueLevel } from "../lib/stations";
 import BookingFlow from "../components/BookingFlow";
 
-export const Route = createFileRoute("/booking")({
+export const Route = createFileRoute("/booking/")({
   head: () => ({
     meta: [
       { title: "Book a Slot — EcoPulse EV" },
@@ -99,7 +99,7 @@ function BookingPage() {
         ) : (
           <div className="mt-3 space-y-3">
             {bookings.map((b) => (
-              <BookingCard key={b.id} bookingId={b.id} />
+              <BookingCard key={b.code} bookingId={b.code} />
             ))}
           </div>
         )}
@@ -115,7 +115,7 @@ function BookingPage() {
 function BookingCard({ bookingId }: { bookingId: string }) {
   const { bookings } = useApp();
   const [open, setOpen] = useState(false);
-  const b = bookings.find((x) => x.id === bookingId);
+  const b = bookings.find((x) => x.code === bookingId);
   if (!b) return null;
 
   return (
@@ -132,7 +132,7 @@ function BookingCard({ bookingId }: { bookingId: string }) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="font-mono text-xs font-bold text-primary">{b.id}</span>
+          <span className="font-mono text-xs font-bold text-primary">{b.code}</span>
           <ChevronDown
             className={`h-4 w-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
           />
@@ -142,7 +142,7 @@ function BookingCard({ bookingId }: { bookingId: string }) {
         <div className="mt-4 flex items-center gap-4 border-t border-border pt-4">
           <div className="rounded-lg bg-foreground p-2">
             <QRCodeSVG
-              value={`ECOPULSE:${b.id}:${b.stationId}:${b.day}@${b.hour}`}
+              value={`ECOPULSE:${b.code}:${b.stationId}:${b.day}@${b.hour}`}
               size={88}
             />
           </div>

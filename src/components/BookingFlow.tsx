@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
-import { QRCodeSVG } from "qrcode.react";
+import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowRight,
   BadgePercent,
   BatteryCharging,
-  CheckCircle2,
   Clock,
   X,
   Zap,
@@ -14,11 +13,11 @@ import {
   availablePorts,
   bestAlternative,
   isCongested,
-  type Booking,
   type ChargerType,
   type Station,
 } from "../lib/stations";
 import { useApp } from "../lib/store";
+import { createBookingCheckout } from "../lib/payments.functions";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -33,17 +32,19 @@ interface Props {
   onClose: () => void;
 }
 
-type Step = "charger" | "slot" | "confirm";
+type Step = "charger" | "slot";
 
 export default function BookingFlow({ station: initial, onClose }: Props) {
-  const { stations, addBooking, getStation } = useApp();
+  const { stations, registerBooking, getStation } = useApp();
+  const startCheckout = useServerFn(createBookingCheckout);
   const [stationId, setStationId] = useState(initial.id);
   const [step, setStep] = useState<Step>("charger");
   const [chargerType, setChargerType] = useState<ChargerType | null>(null);
   const [day, setDay] = useState<"today" | "tomorrow">("today");
   const [hour, setHour] = useState<number | null>(null);
   const [discount, setDiscount] = useState(false);
-  const [booking, setBooking] = useState<Booking | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   const [rerouteDeclined, setRerouteDeclined] = useState(false);
 
   const station = getStation(stationId) ?? initial;
@@ -52,8 +53,7 @@ export default function BookingFlow({ station: initial, onClose }: Props) {
     () => (congested ? bestAlternative(stations, station) : null),
     [congested, stations, station],
   );
-  const showReroute =
-    congested && alt !== null && !rerouteDeclined && booking === null;
+  const showReroute = congested && alt !== null && !rerouteDeclined;
 
   const chargerOptions = useMemo(() => {
     const map = new Map<ChargerType, { powerKw: number; free: number; total: number }>();
@@ -78,23 +78,33 @@ export default function BookingFlow({ station: initial, onClose }: Props) {
   const subtotal = Math.round(estKwh * station.pricePerKwh);
   const total = discount ? Math.round(subtotal * 0.85) : subtotal;
 
-  const confirm = () => {
-    if (!chargerType || hour === null) return;
-    const b = addBooking({
-      stationId: station.id,
-      stationName: station.name,
-      city: station.city,
-      chargerType,
-      powerKw,
-      day,
-      hour,
-      estKwh,
-      total,
-      discountApplied: discount,
-    });
-    setBooking(b);
-    setStep("confirm");
+  const confirm = async () => {
+    if (!chargerType || hour === null || paying) return;
+    setPaying(true);
+    setPayError(null);
+    try {
+      const res = await startCheckout({
+        data: {
+          stationId: station.id,
+          stationName: station.name,
+          city: station.city,
+          chargerType,
+          powerKw,
+          day,
+          hour,
+          estKwh,
+          total,
+          discountApplied: discount,
+        },
+      });
+      registerBooking(res.code);
+      window.location.href = res.url;
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : "Could not start the payment.");
+      setPaying(false);
+    }
   };
+
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-background/70 backdrop-blur-sm sm:items-center">
@@ -150,7 +160,7 @@ export default function BookingFlow({ station: initial, onClose }: Props) {
           </div>
         )}
 
-        {discount && !booking && (
+        {discount && (
           <p className="mt-3 flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">
             <BadgePercent className="h-3.5 w-3.5" /> 15% reroute discount will be applied
           </p>
@@ -267,78 +277,28 @@ export default function BookingFlow({ station: initial, onClose }: Props) {
               </div>
             )}
             <button
-              disabled={hour === null}
+              disabled={hour === null || paying}
               onClick={confirm}
               className="mt-4 w-full rounded-md bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-glow disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Confirm Booking
+              {paying ? "Opening secure checkout…" : `Pay ₹${total} & Confirm`}
             </button>
+
           </div>
         )}
 
-        {step === "confirm" && booking && (
-          <div className="mt-5 text-center">
-            <CheckCircle2 className="mx-auto h-10 w-10 text-primary" />
-            <h3 className="mt-2 font-display text-lg font-bold">
-              Booking Confirmed
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              Show this QR at the station to start charging
-            </p>
-            <div className="mx-auto mt-4 w-fit rounded-xl bg-foreground p-3">
-              <QRCodeSVG
-                value={`ECOPULSE:${booking.id}:${booking.stationId}:${booking.day}@${booking.hour}`}
-                size={140}
-              />
-            </div>
-            <p className="mt-3 font-mono text-sm font-bold tracking-widest text-primary">
-              {booking.id}
-            </p>
-            <div className="mt-3 space-y-1 rounded-xl border border-border bg-secondary/50 p-3 text-left text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Station</span>
-                <span className="font-medium">{booking.stationName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Slot</span>
-                <span className="font-medium capitalize">
-                  {booking.day} · {fmtHour(booking.hour)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Charger</span>
-                <span className="font-medium">
-                  {CHARGER_LABELS[booking.chargerType]} {booking.powerKw} kW
-                </span>
-              </div>
-              {booking.discountApplied && (
-                <div className="flex justify-between text-primary">
-                  <span className="flex items-center gap-1">
-                    <BadgePercent className="h-3.5 w-3.5" /> Reroute discount
-                  </span>
-                  <span>15% off</span>
-                </div>
-              )}
-              <div className="flex justify-between border-t border-border pt-1 font-bold">
-                <span>Total (est.)</span>
-                <span>₹{booking.total}</span>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="mt-4 w-full rounded-md bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground"
-            >
-              Done
-            </button>
-          </div>
-        )}
-
-        {!booking && (
-          <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-            <Clock className="h-3 w-3" /> Availability updates in real time as
-            slots are reserved
+        {payError && (
+          <p className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+            {payError}
           </p>
         )}
+
+
+        <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+          <Clock className="h-3 w-3" /> Live station data from OpenChargeMap ·
+          payment secured by Stripe
+        </p>
+
       </div>
     </div>
   );
