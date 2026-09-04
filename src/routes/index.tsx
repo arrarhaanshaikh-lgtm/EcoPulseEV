@@ -47,25 +47,20 @@ const LEVEL_LABEL = {
 } as const;
 
 function MapPage() {
-  const { stations } = useApp();
+  const { stations, loading, error, userPos } = useApp();
   const [mounted, setMounted] = useState(false);
-  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null);
   const [bookingStation, setBookingStation] = useState<Station | null>(null);
 
   useEffect(() => {
     setMounted(true);
-    navigator.geolocation?.getCurrentPosition(
-      (pos) => setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => setUserPos({ lat: 12.9716, lng: 77.5946 }), // Bengaluru fallback
-      { timeout: 4000 },
-    );
   }, []);
 
   const sorted = [...stations].sort((a, b) => {
     if (!userPos) return 0;
     return haversineKm(userPos, a) - haversineKm(userPos, b);
   });
+
 
   return (
     <main className="pb-20 pt-14 sm:pb-0">
