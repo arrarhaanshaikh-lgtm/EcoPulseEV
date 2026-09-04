@@ -267,12 +267,13 @@ export default function BookingFlow({ station: initial, onClose }: Props) {
               </div>
             )}
             <button
-              disabled={hour === null}
+              disabled={hour === null || paying}
               onClick={confirm}
               className="mt-4 w-full rounded-md bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-glow disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Confirm Booking
+              {paying ? "Opening secure checkout…" : `Pay ₹${total} & Confirm`}
             </button>
+
           </div>
         )}
 
