@@ -142,17 +142,15 @@ export const fetchStations = createServerFn({ method: "GET" })
     const apiKey = process.env["OPENCHARGEMAP_API_KEY"];
     if (apiKey) headers["X-API-Key"] = apiKey;
 
+    const offline = "Showing our curated station network — the live feed is unavailable right now.";
+
     try {
       const res = await fetch(url, { headers });
       if (!res.ok) {
-        const body = await res.text();
-        console.error(`OpenChargeMap request failed [${res.status}]: ${body}`);
+        console.error(`OpenChargeMap request failed [${res.status}]`);
         return {
-          stations: [],
-          error:
-            res.status === 403 || res.status === 401
-              ? "OpenChargeMap rejected the request — add an API key to raise limits."
-              : `Could not load live stations (${res.status}).`,
+          stations: fallbackStations(data.lat, data.lng, data.limit),
+          error: offline,
         };
       }
       const pois = (await res.json()) as OcmPoi[];
@@ -160,9 +158,12 @@ export const fetchStations = createServerFn({ method: "GET" })
         .map(mapPoi)
         .filter((s): s is Station => s !== null)
         .slice(0, data.limit);
+      if (stations.length === 0) {
+        return { stations: fallbackStations(data.lat, data.lng, data.limit), error: offline };
+      }
       return { stations, error: null };
     } catch (err) {
       console.error("OpenChargeMap fetch error", err);
-      return { stations: [], error: "Live station data is temporarily unavailable." };
+      return { stations: fallbackStations(data.lat, data.lng, data.limit), error: offline };
     }
   });
