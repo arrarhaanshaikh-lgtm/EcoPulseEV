@@ -82,10 +82,10 @@ export const createBookingCheckout = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => checkoutSchema.parse(data))
   .handler(async ({ data }): Promise<{ url: string; code: string }> => {
     const key = process.env["STRIPE_SECRET_KEY"];
-    if (!key) throw new Error(STRIPE_MISSING);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const code = makeCode();
+
 
     const { error } = await supabaseAdmin.from("bookings").insert({
       code,
