@@ -126,12 +126,19 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  useEffect(() => {
+    console.log("Developed by Arhaan — Created & Architected by Shaikh Arhaan Sabir");
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AppProvider>
         <NavBar />
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
+        <footer className="px-4 pb-24 pt-8 text-center text-[11px] text-muted-foreground md:pb-8">
+          Created &amp; Architected by Shaikh Arhaan Sabir
+        </footer>
       </AppProvider>
     </QueryClientProvider>
   );
