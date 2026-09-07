@@ -99,7 +99,8 @@ export const createBookingCheckout = createServerFn({ method: "POST" })
       est_kwh: data.estKwh,
       amount_inr: data.total,
       discount_applied: data.discountApplied,
-      status: "pending",
+      status: key ? "pending" : "paid",
+      ...(key ? {} : { stripe_session_id: "demo", paid_at: new Date().toISOString() }),
     });
     if (error) {
       console.error("Booking insert failed", error);
@@ -107,7 +108,15 @@ export const createBookingCheckout = createServerFn({ method: "POST" })
     }
 
     const origin = new URL(getRequest().url).origin;
+
+    // No Stripe key configured — confirm the booking in demo mode instead of failing.
+    if (!key) {
+      console.warn(STRIPE_MISSING);
+      return { url: `${origin}/booking/success?code=${code}&session_id=demo`, code };
+    }
+
     const params = new URLSearchParams();
+
     params.set("mode", "payment");
     params.set("success_url", `${origin}/booking/success?code=${code}&session_id={CHECKOUT_SESSION_ID}`);
     params.set("cancel_url", `${origin}/booking?cancelled=${code}`);
