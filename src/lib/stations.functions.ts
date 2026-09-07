@@ -1,6 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { INITIAL_STATIONS, haversineKm } from "./stations";
 import type { Charger, ChargerStatus, ChargerType, Station } from "./stations";
+
+/** Curated nationwide stations, nearest first — used when the live feed is unavailable. */
+function fallbackStations(lat: number, lng: number, limit: number): Station[] {
+  return [...INITIAL_STATIONS]
+    .sort((a, b) => haversineKm({ lat, lng }, a) - haversineKm({ lat, lng }, b))
+    .slice(0, limit);
+}
 
 const inputSchema = z.object({
   lat: z.number().min(-90).max(90),
