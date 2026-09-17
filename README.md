@@ -66,22 +66,6 @@ Build a responsive, modern Web Application called "EcoPulse EV" — a Smart EV C
 
 ---
 
-### 🗄️ Mock Data Schema
-
-Initialize the app with pre-populated mock JSON data containing 5-8 realistic EV stations with latitude/longitude coordinates (e.g., Pune Junction EV Hub, MG Road Fast Charge, Baner Green Grid, Kothrud Power Dock) complete with charger types, pricing per kWh, current queue length, and available slots.
-
-This project was built with [Lovable](https://lovable.dev).
-
-**Live app**: https://ecopulse-ev-app.lovable.app
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/574d395f-d2bc-4eef-ae32-8ccb71a68045).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
 ## Development
 
 Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
