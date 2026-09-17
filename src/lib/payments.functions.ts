@@ -79,7 +79,7 @@ async function stripeFetch(path: string, key: string, body?: URLSearchParams) {
 }
 
 export const createBookingCheckout = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => checkoutSchema.parse(data))
+  .validator((data: unknown) => checkoutSchema.parse(data))
   .handler(async ({ data }): Promise<{ url: string; code: string }> => {
     const key = process.env["STRIPE_SECRET_KEY"];
 
@@ -146,7 +146,7 @@ export const createBookingCheckout = createServerFn({ method: "POST" })
 
 /** Confirms payment after Stripe redirects back (webhook-independent fallback). */
 export const confirmBookingPayment = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z.object({ code: z.string().min(3).max(20), sessionId: z.string().min(3).max(200) }).parse(data),
   )
   .handler(async ({ data }): Promise<{ booking: StoredBooking | null }> => {
@@ -173,7 +173,7 @@ export const confirmBookingPayment = createServerFn({ method: "POST" })
   });
 
 export const getBookings = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z.object({ codes: z.array(z.string().min(3).max(20)).max(50) }).parse(data),
   )
   .handler(async ({ data }): Promise<{ bookings: StoredBooking[] }> => {

@@ -126,7 +126,7 @@ function mapPoi(poi: OcmPoi): Station | null {
 }
 
 export const fetchStations = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) => inputSchema.parse(data))
+  .validator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }): Promise<{ stations: Station[]; error: string | null }> => {
     const url = new URL("https://api.openchargemap.io/v3/poi");
     url.searchParams.set("output", "json");
