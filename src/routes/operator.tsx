@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import {
   Activity,
   BadgePercent,
@@ -6,6 +7,9 @@ import {
   TrendingUp,
   Wrench,
   Zap,
+  ShieldCheck,
+  ShieldAlert,
+  LogOut,
 } from "lucide-react";
 import { useApp } from "../lib/store";
 import {
@@ -13,6 +17,8 @@ import {
   type ChargerStatus,
   type Station,
 } from "../lib/stations";
+import { AuthModal } from "../components/AuthModal";
+import { getCurrentUser, signOutUser, type AuthUser, type UserRole } from "../lib/auth";
 
 export const Route = createFileRoute("/operator")({
   head: () => ({
@@ -46,16 +52,138 @@ const STATUS_STYLE: Record<ChargerStatus, string> = {
 
 const STATUSES: ChargerStatus[] = ["active", "occupied", "maintenance"];
 
+export function OperatorDashboardHeader({
+  currentUser,
+  onOpenAuth,
+  onSignOut,
+}: {
+  currentUser: AuthUser | null;
+  onOpenAuth: () => void;
+  onSignOut: () => void;
+}) {
+  return (
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg backdrop-blur">
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+          <ShieldCheck className="h-5 w-5" />
+        </div>
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm text-slate-100">Station Control Center</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-mono font-medium text-emerald-400 border border-emerald-500/20">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              {currentUser?.role === "operator" ? "Operator Access Active" : "Driver Mode"}
+            </span>
+          </div>
+          <p className="text-xs text-slate-400">
+            Authenticated: <span className="text-slate-200 font-mono">{currentUser?.email || "Guest"}</span>
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onOpenAuth}
+          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors"
+        >
+          Switch Account / Login
+        </button>
+        {currentUser && (
+          <button
+            onClick={onSignOut}
+            className="rounded-lg border border-red-500/20 bg-red-500/10 p-1.5 text-red-400 hover:bg-red-500/20 transition-colors"
+            title="Sign Out"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function OperatorPage() {
   const { stations, bookings, rerouteCount, setChargerStatus } = useApp();
 
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const user = await getCurrentUser();
+        if (user) {
+          setCurrentUser(user);
+        } else {
+          // Default demo operator session
+          setCurrentUser({ id: "demo-op", email: "operator@ecopulse.ev", role: "operator" });
+        }
+      } catch (err) {
+        setCurrentUser({ id: "demo-op", email: "operator@ecopulse.ev", role: "operator" });
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadUser();
+  }, []);
+
+  const handleAuthSuccess = (role: UserRole, email: string) => {
+    setCurrentUser({ id: "user-" + Date.now(), email, role });
+  };
+
+  const handleSignOut = async () => {
+    await signOutUser();
+    setCurrentUser(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center text-slate-400">
+        <p className="animate-pulse text-sm">Loading Station Control Center...</p>
+      </div>
+    );
+  }
+
+  // Fallback view if authenticated as driver
+  if (currentUser && currentUser.role !== "operator") {
+    return (
+      <main className="mx-auto max-w-6xl px-4 pt-20 pb-24">
+        <OperatorDashboardHeader
+          currentUser={currentUser}
+          onOpenAuth={() => setIsAuthOpen(true)}
+          onSignOut={handleSignOut}
+        />
+        <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-8 shadow-2xl max-w-md">
+            <ShieldAlert className="mx-auto h-12 w-12 text-amber-400 mb-3" />
+            <h2 className="text-xl font-bold text-slate-100">Station Operator Access Required</h2>
+            <p className="mt-2 text-xs text-slate-400 leading-relaxed">
+              You are currently logged in as an <span className="text-emerald-400 font-semibold">EV Driver</span>. Switch to an operator account to access station status controls.
+            </p>
+            <button
+              onClick={() => setIsAuthOpen(true)}
+              className="mt-5 w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-2 rounded-xl text-xs transition-colors"
+            >
+              Switch Account / Login
+            </button>
+          </div>
+        </div>
+        <AuthModal
+          isOpen={isAuthOpen}
+          onClose={() => setIsAuthOpen(false)}
+          onAuthSuccess={handleAuthSuccess}
+        />
+      </main>
+    );
+  }
+
   const allChargers = stations.flatMap((s) => s.chargers);
   const active = allChargers.filter((c) => c.status === "active").length;
-  const revenue =
-    48250 + bookings.reduce((sum, b) => sum + b.total, 0);
+  const revenue = 48250 + bookings.reduce((sum, b) => sum + b.total, 0);
   const peakHour = DEMAND.indexOf(Math.max(...DEMAND));
   const peakFmt = `${peakHour % 12 === 0 ? 12 : peakHour % 12}:00 ${peakHour >= 12 ? "PM" : "AM"}`;
-  const rerouted = rerouteCount + 14; // seeded historical reroutes
+  const rerouted = rerouteCount + 14;
   const reroutePct = Math.round((rerouted / (rerouted + 86)) * 100);
 
   const metrics = [
@@ -67,6 +195,12 @@ function OperatorPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-24 pt-20 sm:pb-10">
+      <OperatorDashboardHeader
+        currentUser={currentUser}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onSignOut={handleSignOut}
+      />
+
       <div className="flex items-center gap-2">
         <Activity className="h-5 w-5 text-primary" />
         <h1 className="font-display text-2xl font-bold">Operator Dashboard</h1>
@@ -116,6 +250,12 @@ function OperatorPage() {
           />
         ))}
       </section>
+
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+      />
     </main>
   );
 }
