@@ -1,30 +1,101 @@
-import { useState } from "react";
-import { Bot, X, Send } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Bot, X, Send, Sparkles, Zap } from "lucide-react";
 import { sendChatMessage } from "../lib/ai.ts";
+import { useApp } from "../lib/store";
+import { haversineKm, queueLevel, type Station } from "../lib/stations";
 
 export function AIChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const { stations, userPos } = useApp();
+
+  // Find nearest station & calculate dynamic grid advice
+  const sorted = [...stations].sort((a, b) => {
+    if (!userPos) return 0;
+    return haversineKm(userPos, a) - haversineKm(userPos, b);
+  });
+
+  const nearestStation = sorted[0];
+  const isCongested = nearestStation && queueLevel(nearestStation) === "congested";
+  const alternativeStation = isCongested
+    ? sorted.find((s) => s.id !== nearestStation.id && queueLevel(s) !== "congested")
+    : null;
+
+  const timeSaved = isCongested && alternativeStation
+    ? Math.max(5, nearestStation.waitMins - alternativeStation.waitMins)
+    : 0;
+
+  const initialGreeting = isCongested && alternativeStation
+    ? `⚡ Smart Grid Alert: ${nearestStation.name} is congested (${nearestStation.waitMins} min wait). I recommend rerouting to ${alternativeStation.name} to save ~${timeSaved} mins & get an off-peak discount!`
+    : nearestStation
+    ? `⚡ Hi! I'm EcoPulse AI. Traffic conditions are clear—${nearestStation.name} has low wait times (~${nearestStation.waitMins} mins)! Ask me anything about Pune charging slots.`
+    : "⚡ Hi! I'm EcoPulse AI. Ask me where to find fast chargers or low wait times in Pune!";
+
   const [messages, setMessages] = useState<Array<{ sender: "user" | "ai"; text: string }>>([
-    { sender: "ai", text: "⚡ Hi! I'm EcoPulse AI. Ask me where to find fast chargers or low wait times in Pune!" }
+    { sender: "ai", text: initialGreeting }
   ]);
 
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length <= 1) {
+        return [{ sender: "ai", text: initialGreeting }];
+      }
+      return prev;
+    });
+  }, [nearestStation?.id, isCongested]);
 
-    const userMsg = input.trim();
-    setInput("");
+  // Trigger reroute event to update map & draw route line
+  const handleRerouteClick = (station: Station) => {
+    window.dispatchEvent(new CustomEvent("reroute-station", { detail: station }));
+    handleSend(`Reroute me to ${station.name}`);
+  };
+
+  const handleSend = async (textToSend?: string) => {
+    const query = textToSend || input;
+    if (!query.trim() || loading) return;
+
+    const userMsg = query.trim();
+    if (!textToSend) setInput("");
+    
     setMessages((prev) => [...prev, { sender: "user", text: userMsg }]);
     setLoading(true);
 
-    const aiReply = await sendChatMessage({ message: userMsg });
-    setMessages((prev) => [...prev, { sender: "ai", text: aiReply }]);
-    setLoading(false);
+    try {
+      const aiReply = await sendChatMessage({ message: userMsg });
+      setMessages((prev) => [...prev, { sender: "ai", text: aiReply }]);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        { sender: "ai", text: "Sorry, I couldn't connect to the grid server right now." },
+      ]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9999] font-sans">
+    <div className="fixed bottom-6 right-6 z-[9999] font-sans flex flex-col items-end gap-2">
+      {/* 1. PROACTIVE POP-UP BADGE */}
+      {!isOpen && isCongested && nearestStation && alternativeStation && (
+        <div
+          onClick={() => {
+            setIsOpen(true);
+            handleRerouteClick(alternativeStation);
+          }}
+          className="max-w-xs cursor-pointer animate-bounce rounded-xl border border-emerald-500/50 bg-slate-900/95 p-3 shadow-xl shadow-emerald-500/20 backdrop-blur-md transition-all hover:scale-105"
+        >
+          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+            <Sparkles className="w-3.5 h-3.5" /> Smart Grid Alert
+          </div>
+          <p className="mt-1 text-[11px] text-slate-200">
+            <strong className="text-white">{nearestStation.name}</strong> is busy ({nearestStation.waitMins}m wait). Click to reroute to <strong className="text-emerald-300">{alternativeStation.name}</strong>!
+          </p>
+        </div>
+      )}
+
+      {/* 2. FLOATING AI BUTTON */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
@@ -35,6 +106,7 @@ export function AIChat() {
         </button>
       )}
 
+      {/* 3. CHATBOX WINDOW */}
       {isOpen && (
         <div className="w-80 sm:w-96 bg-slate-900 border border-slate-700 text-white rounded-2xl shadow-2xl flex flex-col h-[450px] overflow-hidden">
           <div className="bg-slate-800 p-4 flex justify-between items-center border-b border-slate-700">
@@ -51,13 +123,13 @@ export function AIChat() {
             {messages.map((msg, index) => (
               <div key={index} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
+                  className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${
                     msg.sender === "user"
                       ? "bg-emerald-600 text-white"
                       : "bg-slate-800 text-slate-200 border border-slate-700"
                   }`}
                 >
-                  {msg.text}
+                  <p className="whitespace-pre-line">{msg.text}</p>
                 </div>
               </div>
             ))}
@@ -67,6 +139,18 @@ export function AIChat() {
               </div>
             )}
           </div>
+
+          {/* Quick Reroute Button */}
+          {isCongested && alternativeStation && (
+            <div className="px-3 py-1 bg-slate-900">
+              <button
+                onClick={() => handleRerouteClick(alternativeStation)}
+                className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-400 hover:bg-emerald-500/20"
+              >
+                <Zap className="w-3 h-3" /> Reroute to {alternativeStation.name}
+              </button>
+            </div>
+          )}
 
           <div className="p-3 bg-slate-900 border-t border-slate-700 flex gap-2">
             <input
@@ -78,7 +162,7 @@ export function AIChat() {
               className="flex-1 bg-slate-800 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
             />
             <button
-              onClick={handleSend}
+              onClick={() => handleSend()}
               disabled={loading}
               className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white p-2 rounded-lg"
             >

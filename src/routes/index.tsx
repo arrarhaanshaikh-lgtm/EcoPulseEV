@@ -61,6 +61,19 @@ function MapPage() {
     return haversineKm(userPos, a) - haversineKm(userPos, b);
   });
 
+  // --- DYNAMIC LOAD-BALANCING LOGIC ---
+  const nearestStation = sorted[0];
+  const isNearestCongested = nearestStation && queueLevel(nearestStation) === "congested";
+  
+  // Find the closest non-congested station as an alternative
+  const alternativeStation = isNearestCongested
+    ? sorted.find((s) => s.id !== nearestStation.id && queueLevel(s) !== "congested")
+    : null;
+
+  // Calculate time saved dynamically
+  const timeSaved = isNearestCongested && alternativeStation
+    ? Math.max(5, nearestStation.waitMins - alternativeStation.waitMins)
+    : 0;
 
   return (
     <main className="pb-20 pt-14 sm:pb-0">
@@ -101,6 +114,40 @@ function MapPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-6">
+        
+        {/* DYNAMIC SMART LOAD-BALANCING ALERT BANNER */}
+        {nearestStation && isNearestCongested && alternativeStation ? (
+          /* Case 1: Nearest station is CONGESTED -> Show Reroute Banner */
+          <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-950/30 p-4 shadow-lg shadow-amber-500/10 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 text-xl font-bold">
+                ⚡
+              </div>
+              <div className="text-sm">
+                <span className="font-bold text-amber-400">Smart Grid Advice: </span>
+                <span className="text-slate-200">
+                  <strong className="text-white">{nearestStation.name}</strong> is congested ({nearestStation.waitMins} min wait). Reroute to <strong className="text-emerald-300">{alternativeStation.name}</strong> to save {timeSaved} mins & get a 10% green off-peak discount!
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : nearestStation ? (
+          /* Case 2: Nearest station is CLEAR -> Show Optimal Status Banner */
+          <div className="mb-6 rounded-xl border border-emerald-500/40 bg-emerald-950/30 p-4 shadow-lg shadow-emerald-500/10 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xl font-bold">
+                ✓
+              </div>
+              <div className="text-sm">
+                <span className="font-bold text-emerald-400">Smart Grid Status: </span>
+                <span className="text-slate-200">
+                  Optimal traffic conditions! Your nearest station <strong className="text-white">{nearestStation.name}</strong> has a low wait time (~{nearestStation.waitMins} mins).
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex items-center justify-between">
           <h1 className="font-display text-xl font-bold">
             Stations near you

@@ -58,7 +58,7 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
   const [mapBounds, setMapBounds] = useState<L.LatLngBoundsExpression | null>(null);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
 
-  // Fetch free OSRM route when a station marker is clicked
+  // Fetch free OSRM route when a station marker is clicked OR triggered by AI Assistant reroute
   const handleStationClick = async (station: Station) => {
     setSelectedStationId(station.id);
     if (!userPos) return;
@@ -90,13 +90,27 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
     }
   };
 
+  // --- LISTEN FOR AI ASSISTANT REROUTE EVENT ---
+  useEffect(() => {
+    const handleReroute = (e: CustomEvent<Station>) => {
+      if (e.detail) {
+        handleStationClick(e.detail);
+      }
+    };
+
+    window.addEventListener("reroute-station" as any, handleReroute);
+    return () => {
+      window.removeEventListener("reroute-station" as any, handleReroute);
+    };
+  }, [userPos]);
+
   return (
     <div className="relative z-0 h-full w-full">
       <MapContainer
-      center={[18.5204, 73.8567]} // Sets view directly to Pune
-      zoom={12}                   // Zooms in close enough to see city roads
-      scrollWheelZoom={true}
-      className="h-full w-full rounded-lg"
+        center={[18.5204, 73.8567]} // Sets view directly to Pune
+        zoom={12}                   // Zooms in close enough to see city roads
+        scrollWheelZoom={true}
+        className="h-full w-full rounded-lg"
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -161,8 +175,10 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
                 click: () => handleStationClick(s),
               }}
             >
-              <Popup autoPanPaddingTopLeft={[20, 80]} // 80px top clearance for fixed header
-              autoPanPaddingBottomRight={[20, 20]}>
+              <Popup
+                autoPanPaddingTopLeft={[20, 80]} // 80px top clearance for fixed header
+                autoPanPaddingBottomRight={[20, 20]}
+              >
                 <div className="min-w-52">
                   <p className="font-display text-sm font-bold">{s.name}</p>
                   <p className="text-xs text-muted-foreground">
