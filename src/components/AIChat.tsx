@@ -4,10 +4,19 @@ import { sendChatMessage } from "../lib/ai.ts";
 import { useApp } from "../lib/store";
 import { haversineKm, queueLevel, type Station } from "../lib/stations";
 
+const INITIAL_PROMPTS = [
+  { icon: "🟢", text: "Which station has zero wait time right now?" },
+  { icon: "⚡", text: "Show me fast CCS2 chargers near Baner" },
+  { icon: "💰", text: "Where can I get off-peak charging discounts?" },
+];
+
 export function AIChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // Track active suggestions so only the clicked prompt disappears
+  const [availablePrompts, setAvailablePrompts] = useState(INITIAL_PROMPTS);
 
   const { stations, userPos } = useApp();
 
@@ -55,6 +64,11 @@ export function AIChat() {
   const handleSend = async (textToSend?: string) => {
     const query = textToSend || input;
     if (!query.trim() || loading) return;
+
+    // Filter out only the clicked prompt
+    if (textToSend) {
+      setAvailablePrompts((prev) => prev.filter((p) => p.text !== textToSend));
+    }
 
     const userMsg = query.trim();
     if (!textToSend) setInput("");
@@ -108,7 +122,8 @@ export function AIChat() {
 
       {/* 3. CHATBOX WINDOW */}
       {isOpen && (
-        <div className="w-80 sm:w-96 bg-slate-900 border border-slate-700 text-white rounded-2xl shadow-2xl flex flex-col h-[450px] overflow-hidden">
+        <div className="w-80 sm:w-96 bg-slate-900 border border-slate-700 text-white rounded-2xl shadow-2xl flex flex-col h-[520px] overflow-hidden">
+          {/* Header */}
           <div className="bg-slate-800 p-4 flex justify-between items-center border-b border-slate-700">
             <div className="flex items-center gap-2">
               <Bot className="w-5 h-5 text-emerald-400" />
@@ -119,6 +134,7 @@ export function AIChat() {
             </button>
           </div>
 
+          {/* Messages list */}
           <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-950">
             {messages.map((msg, index) => (
               <div key={index} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
@@ -142,17 +158,40 @@ export function AIChat() {
 
           {/* Quick Reroute Button */}
           {isCongested && alternativeStation && (
-            <div className="px-3 py-1 bg-slate-900">
+            <div className="px-3 pt-2 bg-slate-900 border-t border-slate-800">
               <button
                 onClick={() => handleRerouteClick(alternativeStation)}
-                className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-400 hover:bg-emerald-500/20"
+                className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-colors"
               >
                 <Zap className="w-3 h-3" /> Reroute to {alternativeStation.name}
               </button>
             </div>
           )}
 
-          <div className="p-3 bg-slate-900 border-t border-slate-700 flex gap-2">
+          {/* QUICK PROMPT CHIPS (Hides only the prompt that was clicked) */}
+          {availablePrompts.length > 0 && (
+            <div className="px-3 py-2 bg-slate-900 border-t border-slate-800">
+              <p className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase mb-1.5">
+                Quick Suggestions
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {availablePrompts.map((prompt, idx) => (
+                  <button
+                    key={idx}
+                    disabled={loading}
+                    onClick={() => handleSend(prompt.text)}
+                    className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-800/60 px-2.5 py-1.5 text-left text-[11px] text-slate-300 hover:border-emerald-500/50 hover:bg-slate-800 hover:text-emerald-300 transition-colors disabled:opacity-50"
+                  >
+                    <span>{prompt.icon}</span>
+                    <span className="truncate">{prompt.text}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Input Bar */}
+          <div className="p-3 bg-slate-900 border-t border-slate-800 flex gap-2">
             <input
               type="text"
               placeholder="Ask about charging slots..."
@@ -164,7 +203,7 @@ export function AIChat() {
             <button
               onClick={() => handleSend()}
               disabled={loading}
-              className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white p-2 rounded-lg"
+              className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white p-2 rounded-lg transition-colors"
             >
               <Send className="w-4 h-4" />
             </button>
