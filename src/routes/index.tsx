@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { LocateFixed, MapPin, Users, Zap } from "lucide-react";
+import { LocateFixed, MapPin, Users, Zap, Navigation } from "lucide-react";
 import { useApp } from "../lib/store";
 import {
   availablePorts,
@@ -47,7 +47,7 @@ const LEVEL_LABEL = {
 } as const;
 
 function MapPage() {
-  const { stations, loading, error, userPos } = useApp();
+  const { stations, userPos } = useApp();
   const [mounted, setMounted] = useState(false);
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null);
   const [bookingStation, setBookingStation] = useState<Station | null>(null);
@@ -75,9 +75,15 @@ function MapPage() {
     ? Math.max(5, nearestStation.waitMins - alternativeStation.waitMins)
     : 0;
 
+  // Handler to dispatch map routing and scroll smoothly to top map view
+  const handleGetRoute = (s: Station) => {
+    window.dispatchEvent(new CustomEvent("reroute-station", { detail: s }));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <main className="pb-20 pt-14 sm:pb-0">
-      <section className="relative h-[52vh] min-h-80 sm:h-[62vh]">
+      <section id="map-section" className="relative h-[52vh] min-h-80 sm:h-[62vh]">
         {mounted ? (
           <Suspense
             fallback={
@@ -117,7 +123,6 @@ function MapPage() {
         
         {/* DYNAMIC SMART LOAD-BALANCING ALERT BANNER */}
         {nearestStation && isNearestCongested && alternativeStation ? (
-          /* Case 1: Nearest station is CONGESTED -> Show Reroute Banner */
           <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-950/30 p-4 shadow-lg shadow-amber-500/10 backdrop-blur-md">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 text-xl font-bold">
@@ -132,7 +137,6 @@ function MapPage() {
             </div>
           </div>
         ) : nearestStation ? (
-          /* Case 2: Nearest station is CLEAR -> Show Optimal Status Banner */
           <div className="mb-6 rounded-xl border border-emerald-500/40 bg-emerald-950/30 p-4 shadow-lg shadow-emerald-500/10 backdrop-blur-md">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xl font-bold">
@@ -156,6 +160,7 @@ function MapPage() {
             {stations.length} live across India
           </span>
         </div>
+
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sorted.map((s) => {
             const level = queueLevel(s);
@@ -163,44 +168,56 @@ function MapPage() {
             return (
               <article
                 key={s.id}
-                className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40"
+                className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40 flex flex-col justify-between"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h2 className="font-display text-sm font-bold">{s.name}</h2>
-                    <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                      <MapPin className="h-3 w-3" />
-                      {s.city}
-                      {dist !== null && ` · ${dist.toFixed(1)} km`}
-                    </p>
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h2 className="font-display text-sm font-bold">{s.name}</h2>
+                      <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        {s.city}
+                        {dist !== null && ` · ${dist.toFixed(1)} km`}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${LEVEL_STYLES[level]}`}
+                    >
+                      {LEVEL_LABEL[level]}
+                    </span>
                   </div>
-                  <span
-                    className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${LEVEL_STYLES[level]}`}
-                  >
-                    {LEVEL_LABEL[level]}
-                  </span>
+                  <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3.5 w-3.5" /> {s.queue} in queue · ~{s.waitMins} min
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Zap className="h-3.5 w-3.5" /> {availablePorts(s)}/{s.chargers.length} free
+                    </span>
+                    <span>₹{s.pricePerKwh}/kWh</span>
+                  </div>
                 </div>
-                <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Users className="h-3.5 w-3.5" /> {s.queue} in queue · ~{s.waitMins} min
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Zap className="h-3.5 w-3.5" /> {availablePorts(s)}/{s.chargers.length} free
-                  </span>
-                  <span>₹{s.pricePerKwh}/kWh</span>
-                </div>
-                <div className="mt-3 flex gap-2">
+
+                <div className="mt-3 flex gap-1.5">
                   <button
-                    onClick={() => setFlyTarget([s.lat, s.lng])}
-                    className="flex-1 rounded-md border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setFlyTarget([s.lat, s.lng]);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="flex-1 rounded-md border border-border px-2 py-2 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
                   >
-                    View on map
+                    View
+                  </button>
+                  <button
+                    onClick={() => handleGetRoute(s)}
+                    className="flex-1 flex items-center justify-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-2 text-[11px] font-bold text-emerald-400 hover:bg-emerald-500/20"
+                  >
+                    <Navigation className="h-3 w-3" /> Get Route
                   </button>
                   <button
                     onClick={() => setBookingStation(s)}
-                    className="flex-1 rounded-md bg-primary px-3 py-2 text-xs font-bold text-primary-foreground shadow-glow"
+                    className="flex-1 rounded-md bg-primary px-2 py-2 text-[11px] font-bold text-primary-foreground shadow-glow"
                   >
-                    Book a Slot
+                    Book Slot
                   </button>
                 </div>
               </article>
