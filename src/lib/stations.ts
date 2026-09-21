@@ -52,6 +52,45 @@ const c = (
 ): Charger => ({ id, type, powerKw, status });
 
 export const INITIAL_STATIONS: Station[] = [
+  // --- HIGHWAY CORRIDOR STATIONS (Pune - Ahmednagar - Solapur - Mumbai) ---
+  {
+    id: "highway-shikrapur",
+    name: "Shikrapur Highway Fast Charge",
+    city: "Shikrapur",
+    lat: 18.7234,
+    lng: 74.1250,
+    pricePerKwh: 17,
+    queue: 1,
+    waitMins: 10,
+    chargers: [c("shikrapur-1", "CCS", 60), c("shikrapur-2", "Type2", 22)],
+    reserved: { today: [11], tomorrow: [14] },
+  },
+  {
+    id: "highway-ahmednagar",
+    name: "Ahmednagar Expressway Hub",
+    city: "Ahmednagar",
+    lat: 19.0952,
+    lng: 74.7496,
+    pricePerKwh: 16,
+    queue: 2,
+    waitMins: 20,
+    chargers: [c("ahmednagar-1", "CCS", 120), c("ahmednagar-2", "CCS", 60), c("ahmednagar-3", "Type2", 22)],
+    reserved: { today: [14, 15], tomorrow: [10] },
+  },
+  {
+    id: "highway-lonavala",
+    name: "Lonavala Expressway Power Station",
+    city: "Lonavala",
+    lat: 18.7533,
+    lng: 73.4058,
+    pricePerKwh: 19,
+    queue: 3,
+    waitMins: 30,
+    chargers: [c("lonavala-1", "CCS", 120, "occupied"), c("lonavala-2", "CCS", 60), c("lonavala-3", "Type2", 22)],
+    reserved: { today: [10, 12, 16], tomorrow: [9, 15] },
+  },
+
+  // --- CITY STATIONS ---
   {
     id: "mum-bandra",
     name: "Bandra Volt Hub",
@@ -172,6 +211,38 @@ export const INITIAL_STATIONS: Station[] = [
     chargers: [c("chn-marina-1", "CCS", 50), c("chn-marina-2", "Type2", 22), c("chn-marina-3", "AC", 7)],
     reserved: { today: [8, 17], tomorrow: [9, 10] },
   },
+  
+  // ... your existing stations around Pune ...
+  
+  // Add these highway stations here:
+  {
+    id: "highway-1",
+    name: "Tata Power Expressway Hub",
+    city: "Lonavala",
+    lat: 18.7533,
+    lng: 73.4058,
+    pricePerKwh: 18,
+    queue: 1,
+    waitMins: 5,
+    chargers: [
+      { id: "c1", type: "CCS", powerKw: 60, status: "active" },
+    ],
+    reserved: { today: [], tomorrow: [] },
+  },
+  {
+    id: "highway-2",
+    name: "Zeon Charging Station",
+    city: "Khalapur",
+    lat: 18.8451,
+    lng: 73.3132,
+    pricePerKwh: 19,
+    queue: 2,
+    waitMins: 15,
+    chargers: [
+      { id: "c2", type: "CCS", powerKw: 50, status: "active" },
+    ],
+    reserved: { today: [], tomorrow: [] },
+  }
 ];
 
 export function haversineKm(

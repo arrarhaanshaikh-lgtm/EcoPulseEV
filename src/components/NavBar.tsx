@@ -1,6 +1,15 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { CalendarClock, Gauge, Map as MapIcon, User, Zap, LogIn, LogOut } from "lucide-react";
+import {
+  CalendarClock,
+  Gauge,
+  Map as MapIcon,
+  User,
+  Zap,
+  LogIn,
+  LogOut,
+  Route as RouteIcon,
+} from "lucide-react";
 import { AuthModal } from "./AuthModal";
 import { getCurrentUser, signOutUser, type AuthUser, type UserRole } from "../lib/auth";
 
@@ -39,6 +48,17 @@ export function NavBar() {
     setCurrentUser(null);
   };
 
+  const handleScrollToPlanner = () => {
+    if (pathname !== "/") {
+      window.location.href = "/#highway-planner";
+    } else {
+      const el = document.getElementById("highway-planner");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  };
+
   return (
     <>
       {/* Top bar (all sizes) */}
@@ -68,6 +88,16 @@ export function NavBar() {
                   {label}
                 </Link>
               ))}
+
+              {/* Highway Planner Quick Link */}
+              <button
+                type="button"
+                onClick={handleScrollToPlanner}
+                className="flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium text-emerald-400 transition-colors hover:bg-emerald-500/10 hover:text-emerald-300"
+              >
+                <RouteIcon className="h-3.5 w-3.5" />
+                <span>Planner</span>
+              </button>
             </nav>
 
             {/* Authentication Button, Badge & Safe Sign Out */}
@@ -75,7 +105,7 @@ export function NavBar() {
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-2.5 py-1 text-xs">
                   <User className="h-3.5 w-3.5 text-primary" />
-                  <span className="hidden font-mono text-xs sm:inline text-foreground">
+                  <span className="hidden font-mono text-xs text-foreground sm:inline">
                     {currentUser.email}
                   </span>
                   <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
@@ -108,7 +138,7 @@ export function NavBar() {
 
       {/* Bottom nav (mobile) */}
       <nav className="fixed inset-x-0 bottom-0 z-[900] border-t border-border bg-background/90 backdrop-blur-md sm:hidden">
-        <div className="grid grid-cols-4">
+        <div className="grid grid-cols-5">
           {ITEMS.map(({ to, label, icon: Icon }) => (
             <Link
               key={to}
@@ -121,6 +151,14 @@ export function NavBar() {
               {label}
             </Link>
           ))}
+          <button
+            type="button"
+            onClick={handleScrollToPlanner}
+            className="flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-semibold text-emerald-400"
+          >
+            <RouteIcon className="h-5 w-5" />
+            Planner
+          </button>
         </div>
       </nav>
 

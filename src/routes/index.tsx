@@ -9,6 +9,7 @@ import {
   type Station,
 } from "../lib/stations";
 import BookingFlow from "../components/BookingFlow";
+import HighwayPlanner from "../components/HighwayPlanner";
 
 const StationMap = lazy(() => import("../components/StationMap"));
 
@@ -83,6 +84,7 @@ function MapPage() {
 
   return (
     <main className="pb-20 pt-14 sm:pb-0">
+      {/* 1. MAP SECTION */}
       <section id="map-section" className="relative h-[52vh] min-h-80 sm:h-[62vh]">
         {mounted ? (
           <Suspense
@@ -152,6 +154,12 @@ function MapPage() {
           </div>
         ) : null}
 
+        {/* 2. HIGHWAY PLANNER (FULL WIDTH) */}
+        <div id="highway-planner" className="mb-8 w-full">
+        <HighwayPlanner onBook={setBookingStation} />
+        </div>
+
+        {/* 3. STATIONS LIST SECTION */}
         <div className="flex items-center justify-between">
           <h1 className="font-display text-xl font-bold">
             Stations near you
@@ -224,6 +232,7 @@ function MapPage() {
             );
           })}
         </div>
+
       </section>
 
       {bookingStation && (

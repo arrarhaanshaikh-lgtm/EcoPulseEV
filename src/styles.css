@@ -181,6 +181,16 @@
       saturate(0.4);
   }
 
+  .leaflet-tile {
+  border: none !important;
+  outline: none !important;
+}
+
+.leaflet-container img.leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+}
+
   .leaflet-popup-content-wrapper {
     background: var(--color-card);
     color: var(--color-card-foreground);

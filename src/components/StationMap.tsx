@@ -1,5 +1,14 @@
+// src/components/StationMap.tsx
 import { useState, useEffect } from "react";
-import { MapContainer, Marker, Popup, TileLayer, Polyline, useMap } from "react-leaflet";
+import {
+  MapContainer,
+  Marker,
+  Popup,
+  TileLayer,
+  Polyline,
+  useMap,
+  useMapEvents,
+} from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Zap, Navigation, Clock } from "lucide-react";
@@ -17,13 +26,14 @@ const PIN_COLORS = {
   congested: "#f87171",
 } as const;
 
-function pinIcon(level: keyof typeof PIN_COLORS): L.DivIcon {
+// Precision-anchored custom DivIcon for station markers
+function pinIcon(level: keyof typeof PIN_COLORS, isEnRoute: boolean = true): L.DivIcon {
   return L.divIcon({
-    className: "",
-    html: `<div class="station-pin" style="background:${PIN_COLORS[level]}"><span>⚡</span></div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 30],
-    popupAnchor: [0, -28],
+    className: "custom-station-pin",
+    html: `<div class="station-pin" style="background:${PIN_COLORS[level]}; opacity: ${isEnRoute ? 1 : 0.25}; transform: ${isEnRoute ? 'scale(1)' : 'scale(0.85)'}; transition: all 0.3s ease;"><span>⚡</span></div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 32], // Bottom-center anchor aligning to exact coordinates
+    popupAnchor: [0, -32],
   });
 }
 
@@ -39,9 +49,22 @@ function ChangeView({ bounds }: { bounds: L.LatLngBoundsExpression | null }) {
   const map = useMap();
   useEffect(() => {
     if (bounds) {
-      map.fitBounds(bounds, { padding: [50, 50] });
+      map.fitBounds(bounds, { padding: [60, 60] });
     }
   }, [bounds, map]);
+  return null;
+}
+
+function MapClickHandler() {
+  useMapEvents({
+    click(e) {
+      window.dispatchEvent(
+        new CustomEvent("map-point-selected", {
+          detail: { lat: e.latlng.lat, lng: e.latlng.lng },
+        })
+      );
+    },
+  });
   return null;
 }
 
@@ -58,9 +81,24 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
   const [mapBounds, setMapBounds] = useState<L.LatLngBoundsExpression | null>(null);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
 
-  // Fetch free OSRM route when a station marker is clicked OR triggered by AI Assistant reroute
+  // Highway corridor states
+  const [highwayOrigin, setHighwayOrigin] = useState<[number, number] | null>(
+    userPos ? [userPos.lat, userPos.lng] : [18.5204, 73.8567]
+  );
+  const [highwayDest, setHighwayDest] = useState<[number, number] | null>([19.0760, 72.8777]);
+  const [recommendedStationPos, setRecommendedStationPos] = useState<[number, number] | null>(null);
+  const [enRouteStationIds, setEnRouteStationIds] = useState<Set<string>>(new Set());
+
+  // Sync highwayOrigin with live userPos
+  useEffect(() => {
+    if (userPos) {
+      setHighwayOrigin([userPos.lat, userPos.lng]);
+    }
+  }, [userPos]);
+
+  // Fetch OSRM driving route when a station marker is clicked
   const handleStationClick = async (station: Station) => {
-    setSelectedStationId(station.id);
+    setSelectedStationId(String(station.id));
     if (!userPos) return;
 
     const start = `${userPos.lng},${userPos.lat}`;
@@ -81,16 +119,19 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
         const distanceKm = +(route.distance / 1000).toFixed(1);
         const durationMins = Math.round(route.duration / 60);
 
-        setRouteCoords(points);
-        setRouteInfo({ distanceKm, durationMins });
-        setMapBounds(L.latLngBounds(points));
+        setRouteCoords([]);
+        setTimeout(() => {
+          setRouteCoords(points);
+          setRouteInfo({ distanceKm, durationMins });
+          setMapBounds(L.latLngBounds(points));
+        }, 10);
       }
     } catch (error) {
       console.error("Failed to fetch route:", error);
     }
   };
 
-  // --- LISTEN FOR AI ASSISTANT REROUTE EVENT ---
+  // Listen for AI assistant reroute event
   useEffect(() => {
     const handleReroute = (e: CustomEvent<Station>) => {
       if (e.detail) {
@@ -104,11 +145,46 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
     };
   }, [userPos]);
 
+  // Listen for Highway Planner route updates
+  useEffect(() => {
+    const handleHighwayUpdate = (e: CustomEvent<any>) => {
+      if (e.detail) {
+        const { originCoords, destCoords, routeCoords: newRouteCoords, recommendedStation, enRouteStations } = e.detail;
+
+        if (originCoords) setHighwayOrigin(originCoords);
+        if (destCoords) setHighwayDest(destCoords);
+
+        if (recommendedStation) {
+          setRecommendedStationPos([recommendedStation.lat, recommendedStation.lng]);
+        } else {
+          setRecommendedStationPos(null);
+        }
+
+        if (enRouteStations && Array.isArray(enRouteStations)) {
+          setEnRouteStationIds(new Set(enRouteStations.map((s: any) => String(s.id))));
+        }
+
+        if (newRouteCoords && newRouteCoords.length > 0) {
+          setRouteCoords([]);
+          setTimeout(() => {
+            setRouteCoords(newRouteCoords);
+            setMapBounds(L.latLngBounds(newRouteCoords));
+          }, 10);
+        }
+      }
+    };
+
+    window.addEventListener("highway-route-updated" as any, handleHighwayUpdate);
+    return () => {
+      window.removeEventListener("highway-route-updated" as any, handleHighwayUpdate);
+    };
+  }, []);
+
   return (
     <div className="relative z-0 h-full w-full">
       <MapContainer
-        center={[18.5204, 73.8567]} // Sets view directly to Pune
-        zoom={12}                   // Zooms in close enough to see city roads
+        center={userPos ? [userPos.lat, userPos.lng] : [18.5204, 73.8567]}
+        zoom={10}
         scrollWheelZoom={true}
         className="h-full w-full rounded-lg"
       >
@@ -119,11 +195,11 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
         />
         <FlyTo target={flyTarget} />
         <ChangeView bounds={mapBounds} />
+        <MapClickHandler />
 
-        {/* GLOWING ROUTE LINE */}
+        {/* GLOWING ROUTE POLYLINE */}
         {routeCoords.length > 0 && (
           <>
-            {/* Outer Cyan Glow */}
             <Polyline
               positions={routeCoords}
               pathOptions={{
@@ -133,7 +209,6 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
                 lineCap: "round",
               }}
             />
-            {/* Inner Neon Core */}
             <Polyline
               positions={routeCoords}
               pathOptions={{
@@ -146,12 +221,12 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
           </>
         )}
 
-        {/* User Location Marker */}
+        {/* USER LOCATION MARKER */}
         {userPos && (
           <Marker
             position={[userPos.lat, userPos.lng]}
             icon={L.divIcon({
-              className: "",
+              className: "custom-user-pin",
               html: `<div style="width:14px;height:14px;border-radius:9999px;background:#22d3ee;border:3px solid #0e7490;box-shadow:0 0 12px #22d3ee"></div>`,
               iconSize: [14, 14],
               iconAnchor: [7, 7],
@@ -159,26 +234,63 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
           />
         )}
 
-        {/* Station Markers */}
+        {/* HIGHWAY START LOCATION MARKER */}
+        {highwayOrigin && (
+          <Marker
+            position={highwayOrigin}
+            icon={L.divIcon({
+              className: "custom-start-pin",
+              html: `<div style="background:#10b981;color:white;padding:3px 8px;border-radius:12px;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 0 10px #10b981;white-space:nowrap;">🚩 Start</div>`,
+              iconSize: [60, 25],
+              iconAnchor: [30, 32], // Anchor shifted down so pill floats cleanly ABOVE the cyan location dot
+            })}
+          />
+        )}
+
+        {/* RECOMMENDED CHARGING WAYPOINT MARKER */}
+        {recommendedStationPos && (
+          <Marker
+            position={recommendedStationPos}
+            icon={L.divIcon({
+              className: "custom-stop-pin",
+              html: `<div style="background:#3b82f6;color:white;padding:3px 8px;border-radius:12px;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 0 12px #3b82f6;white-space:nowrap;">⚡ Charge Stop</div>`,
+              iconSize: [95, 25],
+              iconAnchor: [47, 32], // Anchor shifted down to float badge above coordinate
+            })}
+          />
+        )}
+
+        {/* HIGHWAY DESTINATION LOCATION MARKER */}
+        {highwayDest && (
+          <Marker
+            position={highwayDest}
+            icon={L.divIcon({
+              className: "custom-dest-pin",
+              html: `<div style="background:#ef4444;color:white;padding:3px 8px;border-radius:12px;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 0 10px #ef4444;white-space:nowrap;">🏁 Finish</div>`,
+              iconSize: [65, 25],
+              iconAnchor: [32, 32], // Anchor shifted down to float badge above coordinate
+            })}
+          />
+        )}
+
+        {/* ALL STATION MARKERS WITH CORRIDOR FILTERING */}
         {stations.map((s) => {
           const level = queueLevel(s);
           const dist = userPos ? haversineKm(userPos, s) : null;
           const types = [...new Set(s.chargers.map((ch) => ch.type))];
-          const isSelected = selectedStationId === s.id;
+          const isSelected = selectedStationId === String(s.id);
+          const isEnRoute = enRouteStationIds.size === 0 || enRouteStationIds.has(String(s.id));
 
           return (
             <Marker
               key={s.id}
               position={[s.lat, s.lng]}
-              icon={pinIcon(level)}
+              icon={pinIcon(level, isEnRoute)}
               eventHandlers={{
                 click: () => handleStationClick(s),
               }}
             >
-              <Popup
-                autoPanPaddingTopLeft={[20, 80]} // 80px top clearance for fixed header
-                autoPanPaddingBottomRight={[20, 20]}
-              >
+              <Popup autoPanPaddingTopLeft={[20, 80]} autoPanPaddingBottomRight={[20, 20]}>
                 <div className="min-w-52">
                   <p className="font-display text-sm font-bold">{s.name}</p>
                   <p className="text-xs text-muted-foreground">
@@ -186,7 +298,6 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
                     {dist !== null && ` · ${dist.toFixed(1)} km away`}
                   </p>
 
-                  {/* OSRM Route & Traffic Travel Time Badge */}
                   {isSelected && routeInfo && (
                     <div className="mt-2 flex flex-col gap-0.5 rounded bg-primary/10 p-2 text-xs text-primary border border-primary/20">
                       <span className="flex items-center gap-1 font-semibold">
@@ -224,7 +335,7 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
 
                   <button
                     onClick={() => onBook(s)}
-                    className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+                    className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
                   >
                     <Zap className="h-3.5 w-3.5" /> Book a Slot
                   </button>
