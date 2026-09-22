@@ -17,6 +17,7 @@ import {
   availablePorts,
   haversineKm,
   queueLevel,
+  calculateCongestionScore,
   type Station,
 } from "../lib/stations";
 
@@ -77,7 +78,11 @@ interface Props {
 
 export default function StationMap({ stations, userPos, flyTarget, onBook }: Props) {
   const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
-  const [routeInfo, setRouteInfo] = useState<{ distanceKm: number; durationMins: number } | null>(null);
+  const [routeInfo, setRouteInfo] = useState<{
+    distanceKm: number;
+    durationMins: number;
+    congestionScore: number;
+  } | null>(null);
   const [mapBounds, setMapBounds] = useState<L.LatLngBoundsExpression | null>(null);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
 
@@ -96,7 +101,7 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
     }
   }, [userPos]);
 
-  // Fetch OSRM driving route when a station marker is clicked
+  // Fetch OSRM driving route & compute dynamic load-balancing congestion score
   const handleStationClick = async (station: Station) => {
     setSelectedStationId(String(station.id));
     if (!userPos) return;
@@ -119,10 +124,17 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
         const distanceKm = +(route.distance / 1000).toFixed(1);
         const durationMins = Math.round(route.duration / 60);
 
+        // Compute Load-Balancing Congestion Score
+        const congestionScore = calculateCongestionScore({
+          distanceKm,
+          queueLength: station.queue || 0,
+          routeDurationMins: durationMins,
+        });
+
         setRouteCoords([]);
         setTimeout(() => {
           setRouteCoords(points);
-          setRouteInfo({ distanceKm, durationMins });
+          setRouteInfo({ distanceKm, durationMins, congestionScore });
           setMapBounds(L.latLngBounds(points));
         }, 10);
       }
@@ -242,7 +254,7 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
               className: "custom-start-pin",
               html: `<div style="background:#10b981;color:white;padding:3px 8px;border-radius:12px;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 0 10px #10b981;white-space:nowrap;">🚩 Start</div>`,
               iconSize: [60, 25],
-              iconAnchor: [30, 32], // Anchor shifted down so pill floats cleanly ABOVE the cyan location dot
+              iconAnchor: [30, 32],
             })}
           />
         )}
@@ -255,7 +267,7 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
               className: "custom-stop-pin",
               html: `<div style="background:#3b82f6;color:white;padding:3px 8px;border-radius:12px;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 0 12px #3b82f6;white-space:nowrap;">⚡ Charge Stop</div>`,
               iconSize: [95, 25],
-              iconAnchor: [47, 32], // Anchor shifted down to float badge above coordinate
+              iconAnchor: [47, 32],
             })}
           />
         )}
@@ -268,7 +280,7 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
               className: "custom-dest-pin",
               html: `<div style="background:#ef4444;color:white;padding:3px 8px;border-radius:12px;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 0 10px #ef4444;white-space:nowrap;">🏁 Finish</div>`,
               iconSize: [65, 25],
-              iconAnchor: [32, 32], // Anchor shifted down to float badge above coordinate
+              iconAnchor: [32, 32],
             })}
           />
         )}
@@ -298,6 +310,7 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
                     {dist !== null && ` · ${dist.toFixed(1)} km away`}
                   </p>
 
+                  {/* ROUTE AND LOAD BALANCING BANNER */}
                   {isSelected && routeInfo && (
                     <div className="mt-2 flex flex-col gap-0.5 rounded bg-primary/10 p-2 text-xs text-primary border border-primary/20">
                       <span className="flex items-center gap-1 font-semibold">
@@ -305,6 +318,14 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" /> Est. Travel: ~{routeInfo.durationMins} mins
+                      </span>
+                      <span className="mt-1 border-t border-primary/20 pt-1 text-[11px] font-bold flex items-center justify-between">
+                        <span>Congestion Score: {routeInfo.congestionScore.toFixed(1)}</span>
+                        {routeInfo.congestionScore > 15 && (
+                          <span className="text-red-400 font-normal text-[10px] bg-red-500/10 px-1 py-0.5 rounded border border-red-500/20">
+                            (Detour Rec.)
+                          </span>
+                        )}
                       </span>
                     </div>
                   )}

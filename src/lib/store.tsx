@@ -31,6 +31,7 @@ interface AppState {
     chargerId: string,
     status: ChargerStatus,
   ) => void;
+  addEnRouteVehicle: (stationId: string) => void;
   getStation: (id: string) => Station | undefined;
 }
 
@@ -137,6 +138,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  // Increment virtual en-route queue buffer immutably for virtual queue balancing
+  const addEnRouteVehicle = useCallback((stationId: string) => {
+    setStations((prev) =>
+      prev.map((s) =>
+        s.id !== stationId
+          ? s
+          : {
+              ...s,
+              enRouteQueue: (s.enRouteQueue || 0) + 1,
+            },
+      ),
+    );
+  }, []);
+
   const value = useMemo<AppState>(
     () => ({
       stations,
@@ -149,6 +164,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       registerBooking,
       reloadBookings,
       setChargerStatus,
+      addEnRouteVehicle,
       getStation: (id) => stations.find((s) => s.id === id),
     }),
     [
@@ -161,6 +177,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       registerBooking,
       reloadBookings,
       setChargerStatus,
+      addEnRouteVehicle,
     ],
   );
 

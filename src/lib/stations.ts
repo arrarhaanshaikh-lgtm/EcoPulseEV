@@ -16,7 +16,8 @@ export interface Station {
   lat: number;
   lng: number;
   pricePerKwh: number;
-  queue: number;
+  queue: number;            // Active queue physically at the station
+  enRouteQueue?: number;    // Virtual queue of incoming vehicles en-route
   waitMins: number;
   chargers: Charger[];
   /** Hours (0-23) already reserved, per day */
@@ -61,6 +62,7 @@ export const INITIAL_STATIONS: Station[] = [
     lng: 74.1250,
     pricePerKwh: 17,
     queue: 1,
+    enRouteQueue: 0,
     waitMins: 10,
     chargers: [c("shikrapur-1", "CCS", 60), c("shikrapur-2", "Type2", 22)],
     reserved: { today: [11], tomorrow: [14] },
@@ -73,6 +75,7 @@ export const INITIAL_STATIONS: Station[] = [
     lng: 74.7496,
     pricePerKwh: 16,
     queue: 2,
+    enRouteQueue: 0,
     waitMins: 20,
     chargers: [c("ahmednagar-1", "CCS", 120), c("ahmednagar-2", "CCS", 60), c("ahmednagar-3", "Type2", 22)],
     reserved: { today: [14, 15], tomorrow: [10] },
@@ -85,6 +88,7 @@ export const INITIAL_STATIONS: Station[] = [
     lng: 73.4058,
     pricePerKwh: 19,
     queue: 3,
+    enRouteQueue: 1,
     waitMins: 30,
     chargers: [c("lonavala-1", "CCS", 120, "occupied"), c("lonavala-2", "CCS", 60), c("lonavala-3", "Type2", 22)],
     reserved: { today: [10, 12, 16], tomorrow: [9, 15] },
@@ -99,6 +103,7 @@ export const INITIAL_STATIONS: Station[] = [
     lng: 72.8295,
     pricePerKwh: 18,
     queue: 5,
+    enRouteQueue: 2,
     waitMins: 45,
     chargers: [c("mum-bandra-1", "CCS", 50, "occupied"), c("mum-bandra-2", "CCS", 50), c("mum-bandra-3", "Type2", 22), c("mum-bandra-4", "AC", 7)],
     reserved: { today: [9, 10, 13, 18, 19], tomorrow: [8, 12] },
@@ -111,6 +116,7 @@ export const INITIAL_STATIONS: Station[] = [
     lng: 72.8697,
     pricePerKwh: 16,
     queue: 2,
+    enRouteQueue: 0,
     waitMins: 15,
     chargers: [c("mum-andheri-1", "CCS", 60), c("mum-andheri-2", "Type2", 22, "occupied"), c("mum-andheri-3", "Type2", 22)],
     reserved: { today: [11, 17], tomorrow: [10, 18] },
@@ -123,6 +129,7 @@ export const INITIAL_STATIONS: Station[] = [
     lng: 77.2167,
     pricePerKwh: 20,
     queue: 6,
+    enRouteQueue: 1,
     waitMins: 50,
     chargers: [c("del-cp-1", "CCS", 120, "occupied"), c("del-cp-2", "CCS", 50, "occupied"), c("del-cp-3", "Type2", 22), c("del-cp-4", "AC", 7, "maintenance")],
     reserved: { today: [8, 9, 10, 18, 19, 20], tomorrow: [9, 17] },
@@ -135,6 +142,7 @@ export const INITIAL_STATIONS: Station[] = [
     lng: 77.2066,
     pricePerKwh: 15,
     queue: 1,
+    enRouteQueue: 0,
     waitMins: 5,
     chargers: [c("del-saket-1", "CCS", 50), c("del-saket-2", "Type2", 22), c("del-saket-3", "AC", 7)],
     reserved: { today: [14], tomorrow: [11] },
@@ -147,6 +155,7 @@ export const INITIAL_STATIONS: Station[] = [
     lng: 77.6066,
     pricePerKwh: 17,
     queue: 4,
+    enRouteQueue: 1,
     waitMins: 35,
     chargers: [c("blr-mg-1", "CCS", 50, "occupied"), c("blr-mg-2", "Type2", 22), c("blr-mg-3", "Type2", 22, "occupied"), c("blr-mg-4", "AC", 7)],
     reserved: { today: [9, 12, 18], tomorrow: [8, 9, 19] },
@@ -159,6 +168,7 @@ export const INITIAL_STATIONS: Station[] = [
     lng: 77.6602,
     pricePerKwh: 14,
     queue: 0,
+    enRouteQueue: 0,
     waitMins: 0,
     chargers: [c("blr-ecity-1", "CCS", 60), c("blr-ecity-2", "CCS", 60), c("blr-ecity-3", "Type2", 22), c("blr-ecity-4", "AC", 7)],
     reserved: { today: [13], tomorrow: [] },
@@ -171,6 +181,7 @@ export const INITIAL_STATIONS: Station[] = [
     lng: 73.8742,
     pricePerKwh: 16,
     queue: 4,
+    enRouteQueue: 1,
     waitMins: 40,
     chargers: [c("pune-junction-1", "CCS", 50, "occupied"), c("pune-junction-2", "Type2", 22), c("pune-junction-3", "AC", 7)],
     reserved: { today: [10, 11, 18], tomorrow: [9] },
@@ -183,6 +194,7 @@ export const INITIAL_STATIONS: Station[] = [
     lng: 73.7868,
     pricePerKwh: 15,
     queue: 1,
+    enRouteQueue: 0,
     waitMins: 5,
     chargers: [c("pune-baner-1", "CCS", 50), c("pune-baner-2", "Type2", 22), c("pune-baner-3", "AC", 7, "maintenance")],
     reserved: { today: [16], tomorrow: [10] },
@@ -195,6 +207,7 @@ export const INITIAL_STATIONS: Station[] = [
     lng: 78.3772,
     pricePerKwh: 16,
     queue: 3,
+    enRouteQueue: 0,
     waitMins: 25,
     chargers: [c("hyd-hitech-1", "CCS", 60), c("hyd-hitech-2", "CCS", 60, "occupied"), c("hyd-hitech-3", "Type2", 22)],
     reserved: { today: [9, 13, 19], tomorrow: [12] },
@@ -207,14 +220,11 @@ export const INITIAL_STATIONS: Station[] = [
     lng: 80.2824,
     pricePerKwh: 15,
     queue: 2,
+    enRouteQueue: 0,
     waitMins: 15,
     chargers: [c("chn-marina-1", "CCS", 50), c("chn-marina-2", "Type2", 22), c("chn-marina-3", "AC", 7)],
     reserved: { today: [8, 17], tomorrow: [9, 10] },
   },
-  
-  // ... your existing stations around Pune ...
-  
-  // Add these highway stations here:
   {
     id: "highway-1",
     name: "Tata Power Expressway Hub",
@@ -223,10 +233,9 @@ export const INITIAL_STATIONS: Station[] = [
     lng: 73.4058,
     pricePerKwh: 18,
     queue: 1,
+    enRouteQueue: 0,
     waitMins: 5,
-    chargers: [
-      { id: "c1", type: "CCS", powerKw: 60, status: "active" },
-    ],
+    chargers: [c("c1", "CCS", 60)],
     reserved: { today: [], tomorrow: [] },
   },
   {
@@ -237,10 +246,9 @@ export const INITIAL_STATIONS: Station[] = [
     lng: 73.3132,
     pricePerKwh: 19,
     queue: 2,
+    enRouteQueue: 0,
     waitMins: 15,
-    chargers: [
-      { id: "c2", type: "CCS", powerKw: 50, status: "active" },
-    ],
+    chargers: [c("c2", "CCS", 50)],
     reserved: { today: [], tomorrow: [] },
   }
 ];
@@ -260,20 +268,38 @@ export function haversineKm(
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
-/** Smart Load-Balancing score: lower is better. */
-export function loadScore(distanceKm: number, queue: number): number {
-  return distanceKm + queue * 5;
+/** Smart Load-Balancing score: lower is better. Includes virtual en-route queue. */
+export function loadScore(distanceKm: number, queue: number, enRouteQueue: number = 0): number {
+  return distanceKm + (queue + enRouteQueue) * 5;
+}
+
+/** Congestion Score engine with distance, physical queue, en-route buffer, and traffic time */
+export function calculateCongestionScore(station: {
+  distanceKm: number;
+  queueLength: number;
+  enRouteQueue?: number;
+  routeDurationMins?: number;
+}): number {
+  const activeQueue = station.queueLength || 0;
+  const enRoute = station.enRouteQueue || 0;
+  const totalQueue = activeQueue + enRoute;
+  const trafficFactor = station.routeDurationMins ? station.routeDurationMins * 0.5 : 0;
+  
+  // Score = Distance + ((Active Queue + En-Route Queue) * 5) + Traffic Time Factor
+  return station.distanceKm + (totalQueue * 5) + trafficFactor;
 }
 
 export function isCongested(s: Station): boolean {
-  return s.queue > 3 || s.waitMins > 30;
+  const totalQueue = s.queue + (s.enRouteQueue || 0);
+  return totalQueue > 3 || s.waitMins > 30;
 }
 
 export type QueueLevel = "low" | "moderate" | "congested";
 
 export function queueLevel(s: Station): QueueLevel {
-  if (s.queue > 3 || s.waitMins > 30) return "congested";
-  if (s.queue >= 2 || s.waitMins >= 10) return "moderate";
+  const totalQueue = s.queue + (s.enRouteQueue || 0);
+  if (totalQueue > 3 || s.waitMins > 30) return "congested";
+  if (totalQueue >= 2 || s.waitMins >= 10) return "moderate";
   return "low";
 }
 
@@ -291,7 +317,7 @@ export function bestAlternative(
     if (s.id === from.id) continue;
     if (isCongested(s) || availablePorts(s) === 0) continue;
     const d = haversineKm(from, s);
-    const score = loadScore(d, s.queue);
+    const score = loadScore(d, s.queue, s.enRouteQueue || 0);
     if (!best || score < best.score) best = { station: s, distanceKm: d, score };
   }
   return best;

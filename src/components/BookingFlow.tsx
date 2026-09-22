@@ -35,7 +35,7 @@ interface Props {
 type Step = "charger" | "slot";
 
 export default function BookingFlow({ station: initial, onClose }: Props) {
-  const { stations, registerBooking, getStation } = useApp();
+  const { stations, registerBooking, getStation, addEnRouteVehicle } = useApp();
   const startCheckout = useServerFn(createBookingCheckout);
   const [stationId, setStationId] = useState(initial.id);
   const [step, setStep] = useState<Step>("charger");
@@ -98,13 +98,16 @@ export default function BookingFlow({ station: initial, onClose }: Props) {
         },
       });
       registerBooking(res.code);
+      
+      // Increment Virtual Queue Buffer for target station
+      addEnRouteVehicle(station.id);
+      
       window.location.href = res.url;
     } catch (e) {
       setPayError(e instanceof Error ? e.message : "Could not start the payment.");
       setPaying(false);
     }
   };
-
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-background/70 backdrop-blur-sm sm:items-center">
@@ -283,7 +286,6 @@ export default function BookingFlow({ station: initial, onClose }: Props) {
             >
               {paying ? "Opening secure checkout…" : `Pay ₹${total} & Confirm`}
             </button>
-
           </div>
         )}
 
@@ -293,12 +295,10 @@ export default function BookingFlow({ station: initial, onClose }: Props) {
           </p>
         )}
 
-
         <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
           <Clock className="h-3 w-3" /> Live station data from OpenChargeMap ·
           payment secured by Stripe
         </p>
-
       </div>
     </div>
   );
