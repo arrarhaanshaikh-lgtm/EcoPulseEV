@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bot, X, Send, Sparkles, Zap } from "lucide-react";
+import { Bot, X, Send, Sparkles, Zap, Mic, MicOff, Volume2 } from "lucide-react";
 import { sendChatMessage } from "../lib/ai.ts";
 import { useApp } from "../lib/store";
 import { haversineKm, queueLevel, type Station } from "../lib/stations";
@@ -14,7 +14,10 @@ export function AIChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [lang, setLang] = useState<"mr-IN" | "hi-IN" | "en-IN">("mr-IN");
+
   // Track active suggestions so only the clicked prompt disappears
   const [availablePrompts, setAvailablePrompts] = useState(INITIAL_PROMPTS);
 
@@ -39,7 +42,7 @@ export function AIChat() {
   const initialGreeting = isCongested && alternativeStation
     ? `⚡ Smart Grid Alert: ${nearestStation.name} is congested (${nearestStation.waitMins} min wait). I recommend rerouting to ${alternativeStation.name} to save ~${timeSaved} mins & get an off-peak discount!`
     : nearestStation
-    ? `⚡ Hi! I'm EcoPulse AI. Traffic conditions are clear—${nearestStation.name} has low wait times (~${nearestStation.waitMins} mins)! Ask me anything about Pune charging slots.`
+    ? `⚡ Hi! I'm EcoPulse AI. Traffic conditions are clear—${nearestStation.name} has low wait times (~${nearestStation.waitMins} mins)! Ask me anything in Marathi, Hindi, or English.`
     : "⚡ Hi! I'm EcoPulse AI. Ask me where to find fast chargers or low wait times in Pune!";
 
   const [messages, setMessages] = useState<Array<{ sender: "user" | "ai"; text: string }>>([
@@ -54,6 +57,57 @@ export function AIChat() {
       return prev;
     });
   }, [nearestStation?.id, isCongested]);
+
+  // Voice Output (Text-to-Speech)
+  const speakText = (text: string) => {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang;
+    utterance.rate = 0.95;
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const stopSpeaking = () => {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
+  };
+
+  // Voice Input (Speech Recognition)
+  const startListening = () => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = lang;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(transcript);
+      handleSend(transcript);
+    };
+
+    recognition.start();
+  };
 
   // Trigger reroute event to update map & draw route line
   const handleRerouteClick = (station: Station) => {
@@ -79,6 +133,7 @@ export function AIChat() {
     try {
       const aiReply = await sendChatMessage({ message: userMsg });
       setMessages((prev) => [...prev, { sender: "ai", text: aiReply }]);
+      speakText(aiReply);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
@@ -122,16 +177,27 @@ export function AIChat() {
 
       {/* 3. CHATBOX WINDOW */}
       {isOpen && (
-        <div className="w-80 sm:w-96 bg-slate-900 border border-slate-700 text-white rounded-2xl shadow-2xl flex flex-col h-[520px] overflow-hidden">
+        <div className="w-80 sm:w-96 bg-slate-900 border border-slate-700 text-white rounded-2xl shadow-2xl flex flex-col h-[540px] overflow-hidden">
           {/* Header */}
           <div className="bg-slate-800 p-4 flex justify-between items-center border-b border-slate-700">
             <div className="flex items-center gap-2">
               <Bot className="w-5 h-5 text-emerald-400" />
               <span className="font-bold text-sm">EcoPulse AI Grid Assistant</span>
             </div>
-            <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white">
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              {isSpeaking && (
+                <button
+                  onClick={stopSpeaking}
+                  className="p-1 text-emerald-400 hover:text-white"
+                  title="Stop Audio"
+                >
+                  <Volume2 className="w-5 h-5 animate-pulse" />
+                </button>
+              )}
+              <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* Messages list */}
@@ -190,11 +256,53 @@ export function AIChat() {
             </div>
           )}
 
+          {/* VOICE LANGUAGE SELECTOR */}
+          <div className="border-t border-slate-800 bg-slate-950 px-3 py-1.5 flex items-center justify-between text-[11px] text-slate-400">
+            <span>Mic Lang:</span>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setLang("mr-IN")}
+                className={`px-2 py-0.5 rounded ${
+                  lang === "mr-IN" ? "bg-emerald-500 text-white font-medium" : "hover:bg-slate-800"
+                }`}
+              >
+                Marathi
+              </button>
+              <button
+                onClick={() => setLang("hi-IN")}
+                className={`px-2 py-0.5 rounded ${
+                  lang === "hi-IN" ? "bg-emerald-500 text-white font-medium" : "hover:bg-slate-800"
+                }`}
+              >
+                Hindi
+              </button>
+              <button
+                onClick={() => setLang("en-IN")}
+                className={`px-2 py-0.5 rounded ${
+                  lang === "en-IN" ? "bg-emerald-500 text-white font-medium" : "hover:bg-slate-800"
+                }`}
+              >
+                English
+              </button>
+            </div>
+          </div>
+
           {/* Input Bar */}
-          <div className="p-3 bg-slate-900 border-t border-slate-800 flex gap-2">
+          <div className="p-3 bg-slate-900 border-t border-slate-800 flex gap-2 items-center">
+            <button
+              onClick={startListening}
+              className={`p-2 rounded-lg transition-colors ${
+                isListening
+                  ? "bg-red-500/20 text-red-400 border border-red-500/50 animate-bounce"
+                  : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+              }`}
+              title="Click mic to speak"
+            >
+              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
             <input
               type="text"
-              placeholder="Ask about charging slots..."
+              placeholder={isListening ? "Listening..." : "Ask in Marathi, Hindi, English..."}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
@@ -202,7 +310,7 @@ export function AIChat() {
             />
             <button
               onClick={() => handleSend()}
-              disabled={loading}
+              disabled={loading || !input.trim()}
               className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white p-2 rounded-lg transition-colors"
             >
               <Send className="w-4 h-4" />
