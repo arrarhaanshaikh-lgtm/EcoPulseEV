@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   MapContainer,
   Marker,
@@ -31,24 +31,66 @@ const PIN_COLORS = {
   congested: "#f87171",
 } as const;
 
-// Custom DivIcon for station markers
-function pinIcon(level: keyof typeof PIN_COLORS, isEnRoute: boolean = true): L.DivIcon {
-  return L.divIcon({
+// Global Icon Cache to prevent DOM re-creations on every render frame
+const pinIconCache = new Map<string, L.DivIcon>();
+
+function getPinIcon(level: keyof typeof PIN_COLORS, isEnRoute: boolean = true): L.DivIcon {
+  const cacheKey = `${level}-${isEnRoute}`;
+  if (pinIconCache.has(cacheKey)) {
+    return pinIconCache.get(cacheKey)!;
+  }
+
+  const icon = L.divIcon({
     className: "custom-station-pin",
-    html: `<div class="station-pin" style="background:${PIN_COLORS[level]}; opacity: ${isEnRoute ? 1 : 0.25}; transform: ${isEnRoute ? 'scale(1)' : 'scale(0.85)'}; transition: all 0.3s ease;"><span>⚡</span></div>`,
+    html: `<div class="station-pin" style="background:${PIN_COLORS[level]}; opacity: ${
+      isEnRoute ? 1 : 0.25
+    }; transform: ${
+      isEnRoute ? "scale(1)" : "scale(0.85)"
+    }; transition: all 0.3s ease;"><span>⚡</span></div>`,
     iconSize: [32, 32],
     iconAnchor: [16, 32],
     popupAnchor: [0, -32],
   });
+
+  pinIconCache.set(cacheKey, icon);
+  return icon;
 }
 
-// Custom DivIcon for EV Service Centers
+// Static custom pins memoized outside component tree
 const serviceCenterIcon = L.divIcon({
   className: "custom-service-pin",
   html: `<div style="background:#8b5cf6; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid #ffffff; box-shadow:0 0 12px rgba(139,92,246,0.8); font-size:14px; color:white;">🔧</div>`,
   iconSize: [32, 32],
   iconAnchor: [16, 32],
   popupAnchor: [0, -32],
+});
+
+const userPinIcon = L.divIcon({
+  className: "custom-user-pin",
+  html: `<div style="width:14px;height:14px;border-radius:9999px;background:#22d3ee;border:3px solid #0e7490;box-shadow:0 0 12px #22d3ee"></div>`,
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+
+const startPinIcon = L.divIcon({
+  className: "custom-start-pin",
+  html: `<div style="background:#10b981;color:white;padding:3px 8px;border-radius:12px;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 0 10px #10b981;white-space:nowrap;">🚩 Start</div>`,
+  iconSize: [60, 25],
+  iconAnchor: [30, 32],
+});
+
+const recommendedPinIcon = L.divIcon({
+  className: "custom-stop-pin",
+  html: `<div style="background:#3b82f6;color:white;padding:3px 8px;border-radius:12px;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 0 12px #3b82f6;white-space:nowrap;">⚡ Charge Stop</div>`,
+  iconSize: [95, 25],
+  iconAnchor: [47, 32],
+});
+
+const destPinIcon = L.divIcon({
+  className: "custom-dest-pin",
+  html: `<div style="background:#ef4444;color:white;padding:3px 8px;border-radius:12px;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 0 10px #ef4444;white-space:nowrap;">🏁 Finish</div>`,
+  iconSize: [65, 25],
+  iconAnchor: [32, 32],
 });
 
 function FlyTo({ target }: { target: [number, number] | null }) {
@@ -135,7 +177,7 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
   }, [userLat, userLng]);
 
   // Fetch OSRM driving route for Charging Stations
-  const handleStationClick = async (station: Station) => {
+  const handleStationClick = useCallback(async (station: Station) => {
     setSelectedStationId(String(station.id));
     if (!userPos) return;
 
@@ -163,20 +205,17 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
           routeDurationMins: durationMins,
         });
 
-        setRouteCoords([]);
-        setTimeout(() => {
-          setRouteCoords(points);
-          setRouteInfo({ distanceKm, durationMins, congestionScore });
-          setMapBounds(L.latLngBounds(points));
-        }, 10);
+        setRouteCoords(points);
+        setRouteInfo({ distanceKm, durationMins, congestionScore });
+        setMapBounds(L.latLngBounds(points));
       }
     } catch (error) {
       console.error("Failed to fetch route to station:", error);
     }
-  };
+  }, [userPos]);
 
   // Fetch OSRM driving route for Service Centers
-  const handleServiceCenterClick = async (sc: ServiceCenter) => {
+  const handleServiceCenterClick = useCallback(async (sc: ServiceCenter) => {
     setSelectedStationId(sc.id);
     const startLat = userPos ? userPos.lat : 18.5204;
     const startLng = userPos ? userPos.lng : 73.8567;
@@ -199,17 +238,14 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
         const distanceKm = +(route.distance / 1000).toFixed(1);
         const durationMins = Math.round(route.duration / 60);
 
-        setRouteCoords([]);
-        setTimeout(() => {
-          setRouteCoords(points);
-          setRouteInfo({ distanceKm, durationMins, congestionScore: 0 });
-          setMapBounds(L.latLngBounds(points));
-        }, 10);
+        setRouteCoords(points);
+        setRouteInfo({ distanceKm, durationMins, congestionScore: 0 });
+        setMapBounds(L.latLngBounds(points));
       }
     } catch (error) {
       console.error("Failed to fetch route to service center:", error);
     }
-  };
+  }, [userPos]);
 
   // Listen for AI assistant reroute event
   useEffect(() => {
@@ -223,13 +259,19 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
     return () => {
       window.removeEventListener("reroute-station" as any, handleReroute);
     };
-  }, [userPos]);
+  }, [handleStationClick]);
 
   // Listen for Highway Planner route updates
   useEffect(() => {
     const handleHighwayUpdate = (e: CustomEvent<any>) => {
       if (e.detail) {
-        const { originCoords, destCoords, routeCoords: newRouteCoords, recommendedStation, enRouteStations } = e.detail;
+        const {
+          originCoords,
+          destCoords,
+          routeCoords: newRouteCoords,
+          recommendedStation,
+          enRouteStations,
+        } = e.detail;
 
         if (originCoords) setHighwayOrigin(originCoords);
         if (destCoords) setHighwayDest(destCoords);
@@ -245,11 +287,8 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
         }
 
         if (newRouteCoords && newRouteCoords.length > 0) {
-          setRouteCoords([]);
-          setTimeout(() => {
-            setRouteCoords(newRouteCoords);
-            setMapBounds(L.latLngBounds(newRouteCoords));
-          }, 10);
+          setRouteCoords(newRouteCoords);
+          setMapBounds(L.latLngBounds(newRouteCoords));
         }
       }
     };
@@ -262,6 +301,178 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
 
   const isServiceHubSelected =
     selectedStationId?.includes("osm") || selectedStationId?.includes("sc-");
+
+  // Memoized Charging Station Markers
+  const chargingStationMarkers = useMemo(() => {
+    if (activeFilter !== "all" && activeFilter !== "charging") return null;
+
+    return stations.map((s) => {
+      const level = queueLevel(s);
+      const dist = userPos ? haversineKm(userPos, s) : null;
+      const types = [...new Set(s.chargers.map((ch) => ch.type))];
+      const isSelected = selectedStationId === String(s.id);
+      const isEnRoute =
+        enRouteStationIds.size === 0 || enRouteStationIds.has(String(s.id));
+
+      return (
+        <Marker
+          key={s.id}
+          position={[s.lat, s.lng]}
+          icon={getPinIcon(level, isEnRoute)}
+          eventHandlers={{
+            click: () => handleStationClick(s),
+          }}
+        >
+          <Popup autoPanPaddingTopLeft={[20, 80]} autoPanPaddingBottomRight={[20, 20]}>
+            <div className="min-w-52">
+              <p className="font-display text-sm font-bold text-foreground">{s.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {s.city}
+                {dist !== null && ` · ${dist.toFixed(1)} km away`}
+              </p>
+
+              {isSelected && routeInfo && (
+                <div className="mt-2 flex flex-col gap-0.5 rounded-lg bg-primary/10 p-2 text-xs text-primary border border-primary/20">
+                  <span className="flex items-center gap-1 font-semibold">
+                    <Navigation className="h-3 w-3" /> Route Distance: {routeInfo.distanceKm} km
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> Est. Travel: ~{routeInfo.durationMins} mins
+                  </span>
+                  <span className="mt-1 border-t border-primary/20 pt-1 text-[11px] font-bold flex items-center justify-between">
+                    <span>Congestion Score: {routeInfo.congestionScore.toFixed(1)}</span>
+                    {routeInfo.congestionScore > 15 && (
+                      <span className="text-red-400 font-normal text-[10px] bg-red-500/10 px-1 py-0.5 rounded border border-red-500/20">
+                        (Detour Rec.)
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
+
+              <div className="mt-2 flex flex-wrap gap-1">
+                {types.map((t) => (
+                  <span
+                    key={t}
+                    className="rounded-full border border-border bg-secondary/50 px-2 py-0.5 text-[10px] text-foreground"
+                  >
+                    {CHARGER_LABELS[t]}
+                  </span>
+                ))}
+              </div>
+
+              <div className="mt-2 grid grid-cols-2 gap-x-3 text-xs">
+                <span className="text-muted-foreground">Ports</span>
+                <span className="text-foreground font-medium">
+                  {availablePorts(s)}/{s.chargers.length} free
+                </span>
+                <span className="text-muted-foreground">Queue</span>
+                <span className="text-foreground font-medium">{s.queue} vehicles</span>
+                <span className="text-muted-foreground">Wait</span>
+                <span className="text-foreground font-medium">~{s.waitMins} min</span>
+                <span className="text-muted-foreground">Price</span>
+                <span className="text-foreground font-medium">₹{s.pricePerKwh}/kWh</span>
+              </div>
+
+              <button
+                onClick={() => onBook(s)}
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+              >
+                <Zap className="h-3.5 w-3.5" /> Book a Slot
+              </button>
+            </div>
+          </Popup>
+        </Marker>
+      );
+    });
+  }, [
+    activeFilter,
+    stations,
+    userPos,
+    selectedStationId,
+    enRouteStationIds,
+    routeInfo,
+    handleStationClick,
+    onBook,
+  ]);
+
+  // Memoized Service Hub Markers
+  const serviceHubMarkers = useMemo(() => {
+    if (activeFilter !== "all" && activeFilter !== "service") return null;
+
+    return serviceCenters.map((sc) => {
+      const isSelected = selectedStationId === sc.id;
+
+      return (
+        <Marker
+          key={sc.id}
+          position={[sc.lat, sc.lng]}
+          icon={serviceCenterIcon}
+          eventHandlers={{
+            click: () => handleServiceCenterClick(sc),
+          }}
+        >
+          <Popup autoPanPaddingTopLeft={[20, 80]} autoPanPaddingBottomRight={[20, 20]}>
+            <div className="min-w-56 p-0.5">
+              <div className="flex items-start justify-between gap-1.5">
+                <div>
+                  <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wide">
+                    {sc.brand}
+                  </span>
+                  <h4 className="font-bold text-sm text-foreground leading-tight">{sc.name}</h4>
+                </div>
+                <span className="shrink-0 rounded-md bg-purple-900/60 px-1.5 py-0.5 text-[10px] font-bold text-purple-300 border border-purple-500/30">
+                  ⭐ {sc.rating}
+                </span>
+              </div>
+
+              <p className="mt-1 text-xs text-muted-foreground">{sc.address}</p>
+
+              {isSelected && routeInfo && (
+                <div className="mt-2 flex flex-col gap-0.5 rounded-lg bg-purple-500/10 p-2 text-xs text-purple-300 border border-purple-500/30">
+                  <span className="flex items-center gap-1 font-semibold">
+                    <Navigation className="h-3 w-3 text-purple-400" /> Route Distance: {routeInfo.distanceKm} km
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-purple-400" /> Est. Travel: ~{routeInfo.durationMins} mins
+                  </span>
+                </div>
+              )}
+
+              <div className="mt-2 text-xs">
+                <span className="font-semibold text-foreground text-[11px]">Available Services:</span>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {sc.services.map((service, idx) => (
+                    <span
+                      key={idx}
+                      className="rounded-md bg-secondary/80 px-2 py-0.5 text-[10px] text-secondary-foreground border border-border"
+                    >
+                      {service}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => handleServiceCenterClick(sc)}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-purple-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-purple-500 transition-colors shadow-md shadow-purple-600/30"
+                >
+                  <Navigation className="h-3 w-3" /> Navigate
+                </button>
+                <a
+                  href={`tel:${sc.phone}`}
+                  className="flex items-center justify-center rounded-lg border border-purple-500/50 bg-purple-500/10 px-2.5 py-1.5 text-xs font-semibold text-purple-300 hover:bg-purple-500/20 transition-colors"
+                >
+                  <Phone className="h-3 w-3" />
+                </a>
+              </div>
+            </div>
+          </Popup>
+        </Marker>
+      );
+    });
+  }, [activeFilter, serviceCenters, selectedStationId, routeInfo, handleServiceCenterClick]);
 
   return (
     <div className="relative z-0 h-full w-full">
@@ -358,213 +569,24 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
         )}
 
         {/* USER LOCATION MARKER */}
-        {userPos && (
-          <Marker
-            position={[userPos.lat, userPos.lng]}
-            icon={L.divIcon({
-              className: "custom-user-pin",
-              html: `<div style="width:14px;height:14px;border-radius:9999px;background:#22d3ee;border:3px solid #0e7490;box-shadow:0 0 12px #22d3ee"></div>`,
-              iconSize: [14, 14],
-              iconAnchor: [7, 7],
-            })}
-          />
-        )}
+        {userPos && <Marker position={[userPos.lat, userPos.lng]} icon={userPinIcon} />}
 
         {/* HIGHWAY START LOCATION MARKER */}
-        {highwayOrigin && (
-          <Marker
-            position={highwayOrigin}
-            icon={L.divIcon({
-              className: "custom-start-pin",
-              html: `<div style="background:#10b981;color:white;padding:3px 8px;border-radius:12px;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 0 10px #10b981;white-space:nowrap;">🚩 Start</div>`,
-              iconSize: [60, 25],
-              iconAnchor: [30, 32],
-            })}
-          />
-        )}
+        {highwayOrigin && <Marker position={highwayOrigin} icon={startPinIcon} />}
 
         {/* RECOMMENDED CHARGING WAYPOINT MARKER */}
         {recommendedStationPos && (
-          <Marker
-            position={recommendedStationPos}
-            icon={L.divIcon({
-              className: "custom-stop-pin",
-              html: `<div style="background:#3b82f6;color:white;padding:3px 8px;border-radius:12px;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 0 12px #3b82f6;white-space:nowrap;">⚡ Charge Stop</div>`,
-              iconSize: [95, 25],
-              iconAnchor: [47, 32],
-            })}
-          />
+          <Marker position={recommendedStationPos} icon={recommendedPinIcon} />
         )}
 
         {/* HIGHWAY DESTINATION LOCATION MARKER */}
-        {highwayDest && (
-          <Marker
-            position={highwayDest}
-            icon={L.divIcon({
-              className: "custom-dest-pin",
-              html: `<div style="background:#ef4444;color:white;padding:3px 8px;border-radius:12px;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 0 10px #ef4444;white-space:nowrap;">🏁 Finish</div>`,
-              iconSize: [65, 25],
-              iconAnchor: [32, 32],
-            })}
-          />
-        )}
+        {highwayDest && <Marker position={highwayDest} icon={destPinIcon} />}
 
         {/* CHARGING STATIONS MARKERS */}
-        {(activeFilter === "all" || activeFilter === "charging") &&
-          stations.map((s) => {
-            const level = queueLevel(s);
-            const dist = userPos ? haversineKm(userPos, s) : null;
-            const types = [...new Set(s.chargers.map((ch) => ch.type))];
-            const isSelected = selectedStationId === String(s.id);
-            const isEnRoute = enRouteStationIds.size === 0 || enRouteStationIds.has(String(s.id));
-
-            return (
-              <Marker
-                key={s.id}
-                position={[s.lat, s.lng]}
-                icon={pinIcon(level, isEnRoute)}
-                eventHandlers={{
-                  click: () => handleStationClick(s),
-                }}
-              >
-                <Popup autoPanPaddingTopLeft={[20, 80]} autoPanPaddingBottomRight={[20, 20]}>
-                  <div className="min-w-52">
-                    <p className="font-display text-sm font-bold text-foreground">{s.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {s.city}
-                      {dist !== null && ` · ${dist.toFixed(1)} km away`}
-                    </p>
-
-                    {isSelected && routeInfo && (
-                      <div className="mt-2 flex flex-col gap-0.5 rounded-lg bg-primary/10 p-2 text-xs text-primary border border-primary/20">
-                        <span className="flex items-center gap-1 font-semibold">
-                          <Navigation className="h-3 w-3" /> Route Distance: {routeInfo.distanceKm} km
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> Est. Travel: ~{routeInfo.durationMins} mins
-                        </span>
-                        <span className="mt-1 border-t border-primary/20 pt-1 text-[11px] font-bold flex items-center justify-between">
-                          <span>Congestion Score: {routeInfo.congestionScore.toFixed(1)}</span>
-                          {routeInfo.congestionScore > 15 && (
-                            <span className="text-red-400 font-normal text-[10px] bg-red-500/10 px-1 py-0.5 rounded border border-red-500/20">
-                              (Detour Rec.)
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {types.map((t) => (
-                        <span
-                          key={t}
-                          className="rounded-full border border-border bg-secondary/50 px-2 py-0.5 text-[10px] text-foreground"
-                        >
-                          {CHARGER_LABELS[t]}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="mt-2 grid grid-cols-2 gap-x-3 text-xs">
-                      <span className="text-muted-foreground">Ports</span>
-                      <span className="text-foreground font-medium">
-                        {availablePorts(s)}/{s.chargers.length} free
-                      </span>
-                      <span className="text-muted-foreground">Queue</span>
-                      <span className="text-foreground font-medium">{s.queue} vehicles</span>
-                      <span className="text-muted-foreground">Wait</span>
-                      <span className="text-foreground font-medium">~{s.waitMins} min</span>
-                      <span className="text-muted-foreground">Price</span>
-                      <span className="text-foreground font-medium">₹{s.pricePerKwh}/kWh</span>
-                    </div>
-
-                    <button
-                      onClick={() => onBook(s)}
-                      className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
-                    >
-                      <Zap className="h-3.5 w-3.5" /> Book a Slot
-                    </button>
-                  </div>
-                </Popup>
-              </Marker>
-            );
-          })}
+        {chargingStationMarkers}
 
         {/* EV SERVICE CENTERS MARKERS */}
-        {(activeFilter === "all" || activeFilter === "service") &&
-          serviceCenters.map((sc) => {
-            const isSelected = selectedStationId === sc.id;
-
-            return (
-              <Marker
-                key={sc.id}
-                position={[sc.lat, sc.lng]}
-                icon={serviceCenterIcon}
-                eventHandlers={{
-                  click: () => handleServiceCenterClick(sc),
-                }}
-              >
-                <Popup autoPanPaddingTopLeft={[20, 80]} autoPanPaddingBottomRight={[20, 20]}>
-                  <div className="min-w-56 p-0.5">
-                    <div className="flex items-start justify-between gap-1.5">
-                      <div>
-                        <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wide">
-                          {sc.brand}
-                        </span>
-                        <h4 className="font-bold text-sm text-foreground leading-tight">{sc.name}</h4>
-                      </div>
-                      <span className="shrink-0 rounded-md bg-purple-900/60 px-1.5 py-0.5 text-[10px] font-bold text-purple-300 border border-purple-500/30">
-                        ⭐ {sc.rating}
-                      </span>
-                    </div>
-
-                    <p className="mt-1 text-xs text-muted-foreground">{sc.address}</p>
-
-                    {/* LIVE ROUTE INFORMATION DISPLAY */}
-                    {isSelected && routeInfo && (
-                      <div className="mt-2 flex flex-col gap-0.5 rounded-lg bg-purple-500/10 p-2 text-xs text-purple-300 border border-purple-500/30">
-                        <span className="flex items-center gap-1 font-semibold">
-                          <Navigation className="h-3 w-3 text-purple-400" /> Route Distance: {routeInfo.distanceKm} km
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-purple-400" /> Est. Travel: ~{routeInfo.durationMins} mins
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="mt-2 text-xs">
-                      <span className="font-semibold text-foreground text-[11px]">Available Services:</span>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {sc.services.map((service, idx) => (
-                          <span
-                            key={idx}
-                            className="rounded-md bg-secondary/80 px-2 py-0.5 text-[10px] text-secondary-foreground border border-border"
-                          >
-                            {service}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex gap-2">
-                      <button
-                        onClick={() => handleServiceCenterClick(sc)}
-                        className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-purple-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-purple-500 transition-colors shadow-md shadow-purple-600/30"
-                      >
-                        <Navigation className="h-3 w-3" /> Navigate
-                      </button>
-                      <a
-                        href={`tel:${sc.phone}`}
-                        className="flex items-center justify-center rounded-lg border border-purple-500/50 bg-purple-500/10 px-2.5 py-1.5 text-xs font-semibold text-purple-300 hover:bg-purple-500/20 transition-colors"
-                      >
-                        <Phone className="h-3 w-3" />
-                      </a>
-                    </div>
-                  </div>
-                </Popup>
-              </Marker>
-            );
-          })}
+        {serviceHubMarkers}
       </MapContainer>
     </div>
   );
