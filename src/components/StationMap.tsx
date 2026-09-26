@@ -22,6 +22,7 @@ import {
 } from "../lib/stations";
 import {
   fetchLiveServiceCenters,
+  DEFAULT_PUNE_HUBS,
   type ServiceCenter,
 } from "../lib/osmServiceCenters";
 
@@ -141,8 +142,8 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
   const [mapBounds, setMapBounds] = useState<L.LatLngBoundsExpression | null>(null);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
 
-  // Live Service Centers and Filter States
-  const [serviceCenters, setServiceCenters] = useState<ServiceCenter[]>([]);
+  // Live Service Centers initialized with fallback data on load
+  const [serviceCenters, setServiceCenters] = useState<ServiceCenter[]>(DEFAULT_PUNE_HUBS);
   const [activeFilter, setActiveFilter] = useState<"all" | "charging" | "service">("all");
 
   // Highway corridor states
@@ -164,88 +165,100 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
     }
   }, [userPos]);
 
-  // Fetch live service centers from OpenStreetMap safely
+  // Fetch live service centers from OpenStreetMap safely with fallback handling
   useEffect(() => {
     const lat = userLat ?? 18.5204;
     const lng = userLng ?? 73.8567;
 
-    fetchLiveServiceCenters(lat, lng).then((data) => {
-      if (data && data.length > 0) {
-        setServiceCenters(data);
-      }
-    });
+    fetchLiveServiceCenters(lat, lng)
+      .then((data) => {
+        if (data && data.length > 0) {
+          setServiceCenters(data);
+        } else {
+          setServiceCenters(DEFAULT_PUNE_HUBS);
+        }
+      })
+      .catch(() => {
+        setServiceCenters(DEFAULT_PUNE_HUBS);
+      });
   }, [userLat, userLng]);
 
   // Fetch OSRM driving route for Charging Stations
-  const handleStationClick = useCallback(async (station: Station) => {
-    setSelectedStationId(String(station.id));
-    if (!userPos) return;
+  const handleStationClick = useCallback(
+    async (station: Station) => {
+      setSelectedStationId(String(station.id));
+      if (!userPos) return;
 
-    const start = `${userPos.lng},${userPos.lat}`;
-    const end = `${station.lng},${station.lat}`;
+      const start = `${userPos.lng},${userPos.lat}`;
+      const end = `${station.lng},${station.lat}`;
 
-    try {
-      const response = await fetch(
-        `https://router.project-osrm.org/route/v1/driving/${start};${end}?overview=full&geometries=geojson`
-      );
-      const data = await response.json();
-
-      if (data.routes && data.routes.length > 0) {
-        const route = data.routes[0];
-        const points: [number, number][] = route.geometry.coordinates.map(
-          (coord: [number, number]) => [coord[1], coord[0]]
+      try {
+        const response = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${start};${end}?overview=full&geometries=geojson`
         );
+        const data = await response.json();
 
-        const distanceKm = +(route.distance / 1000).toFixed(1);
-        const durationMins = Math.round(route.duration / 60);
+        if (data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          const points: [number, number][] = route.geometry.coordinates.map(
+            (coord: [number, number]) => [coord[1], coord[0]]
+          );
 
-        const congestionScore = calculateCongestionScore({
-          distanceKm,
-          queueLength: station.queue || 0,
-          routeDurationMins: durationMins,
-        });
+          const distanceKm = +(route.distance / 1000).toFixed(1);
+          const durationMins = Math.round(route.duration / 60);
 
-        setRouteCoords(points);
-        setRouteInfo({ distanceKm, durationMins, congestionScore });
-        setMapBounds(L.latLngBounds(points));
+          const congestionScore = calculateCongestionScore({
+            distanceKm,
+            queueLength: station.queue || 0,
+            routeDurationMins: durationMins,
+          });
+
+          setRouteCoords(points);
+          setRouteInfo({ distanceKm, durationMins, congestionScore });
+          setMapBounds(L.latLngBounds(points));
+        }
+      } catch (error) {
+        console.error("Failed to fetch route to station:", error);
       }
-    } catch (error) {
-      console.error("Failed to fetch route to station:", error);
-    }
-  }, [userPos]);
+    },
+    [userPos]
+  );
 
   // Fetch OSRM driving route for Service Centers
-  const handleServiceCenterClick = useCallback(async (sc: ServiceCenter) => {
-    setSelectedStationId(sc.id);
-    const startLat = userPos ? userPos.lat : 18.5204;
-    const startLng = userPos ? userPos.lng : 73.8567;
+  const handleServiceCenterClick = useCallback(
+    async (sc: ServiceCenter) => {
+      setSelectedStationId(sc.id);
+      const startLat = userPos ? userPos.lat : 18.5204;
+      const startLng = userPos ? userPos.lng : 73.8567;
 
-    const start = `${startLng},${startLat}`;
-    const end = `${sc.lng},${sc.lat}`;
+      const start = `${startLng},${startLat}`;
+      const end = `${sc.lng},${sc.lat}`;
 
-    try {
-      const response = await fetch(
-        `https://router.project-osrm.org/route/v1/driving/${start};${end}?overview=full&geometries=geojson`
-      );
-      const data = await response.json();
-
-      if (data.routes && data.routes.length > 0) {
-        const route = data.routes[0];
-        const points: [number, number][] = route.geometry.coordinates.map(
-          (coord: [number, number]) => [coord[1], coord[0]]
+      try {
+        const response = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${start};${end}?overview=full&geometries=geojson`
         );
+        const data = await response.json();
 
-        const distanceKm = +(route.distance / 1000).toFixed(1);
-        const durationMins = Math.round(route.duration / 60);
+        if (data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          const points: [number, number][] = route.geometry.coordinates.map(
+            (coord: [number, number]) => [coord[1], coord[0]]
+          );
 
-        setRouteCoords(points);
-        setRouteInfo({ distanceKm, durationMins, congestionScore: 0 });
-        setMapBounds(L.latLngBounds(points));
+          const distanceKm = +(route.distance / 1000).toFixed(1);
+          const durationMins = Math.round(route.duration / 60);
+
+          setRouteCoords(points);
+          setRouteInfo({ distanceKm, durationMins, congestionScore: 0 });
+          setMapBounds(L.latLngBounds(points));
+        }
+      } catch (error) {
+        console.error("Failed to fetch route to service center:", error);
       }
-    } catch (error) {
-      console.error("Failed to fetch route to service center:", error);
-    }
-  }, [userPos]);
+    },
+    [userPos]
+  );
 
   // Listen for AI assistant reroute event
   useEffect(() => {
@@ -300,7 +313,7 @@ export default function StationMap({ stations, userPos, flyTarget, onBook }: Pro
   }, []);
 
   const isServiceHubSelected =
-    selectedStationId?.includes("osm") || selectedStationId?.includes("sc-");
+    selectedStationId?.includes("osm") || selectedStationId?.includes("sc-") || selectedStationId?.includes("hub-fallback-");
 
   // Memoized Charging Station Markers
   const chargingStationMarkers = useMemo(() => {
